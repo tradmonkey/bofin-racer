@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { ROUTES, buildRoute, crossedCheckpoint, ghostPose, formatTime } from './racing.js';
 import { makeVehicle, disposeVehicle } from './vehicles.js';
-export function createRaceMode({ scene, roads, starts, heightAt, begin, toast, leaderboard = null }) {
+import { setPalletCargo } from './vehicle-cargo.js';
+export function createRaceMode({ scene, roads, starts, heightAt, begin, toast, setCargo = () => {}, leaderboard = null }) {
   const select = document.getElementById('race-route');
   const status = document.getElementById('race-status');
   const countdown = document.getElementById('race-countdown');
@@ -58,7 +59,7 @@ export function createRaceMode({ scene, roads, starts, heightAt, begin, toast, l
   }
   function cancel(message = 'Timed run cancelled') {
     if (!race) return;
-    race = null; cleanup(); cancelButton.hidden = true; countdown.hidden = true;
+    race = null; setCargo(null); cleanup(); cancelButton.hidden = true; countdown.hidden = true;
     status.textContent = message;
     document.getElementById("race-panel").hidden = true;
   }
@@ -72,6 +73,7 @@ export function createRaceMode({ scene, roads, starts, heightAt, begin, toast, l
     const course = courses.get(select.value);
     if (!course) return;
     const vehicle = begin(starts[course.from], course.path);
+    setCargo(course.cargo);
     const best = readBest(course.id, vehicle);
     race = { course, vehicle, best, identity: leaderboard?.identity(), countdown: 3, elapsed: 0, checkpoint: 0, samples: [], previous: null };
     updateMetrics(race, starts[course.from]);
@@ -81,6 +83,7 @@ export function createRaceMode({ scene, roads, starts, heightAt, begin, toast, l
     showCountdown("3");
     ghost = best ? makeVehicle(vehicle) : null;
     if (ghost) {
+      setPalletCargo(ghost, course.cargo === "pallets");
       ghost.traverse(o => {
         if (o.material) { o.material.transparent = true; o.material.opacity = 0.28; o.material.depthWrite = false; }
       });
@@ -104,7 +107,7 @@ export function createRaceMode({ scene, roads, starts, heightAt, begin, toast, l
     line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), new THREE.LineBasicMaterial({ color: '#d5ff77', transparent: true, opacity: 0.55 }));
     scene.add(line); cancelButton.hidden = false;
     document.getElementById('race-panel').hidden = false;
-    toast('Follow the green route through every checkpoint. Press B or tap Boost for extra speed.');
+    toast((course.cargo === 'pallets' ? 'Deliver the pallets to the beach party! ' : '') + 'Follow the green route through every checkpoint. Press B or tap Boost for extra speed.');
   };
   cancelButton.onclick = () => cancel();
   return {

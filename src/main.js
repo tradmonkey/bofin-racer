@@ -7,6 +7,7 @@ import { CHURCH_ID, addChurch } from "./church.js";
 import { HOSTEL_ID, addHostel } from "./hostel.js";
 import { DAYS_BAR_ID, addDaysBar } from "./days-bar.js";
 import { DOONMORE_BUILDINGS, addDoonmore } from "./doonmore.js";
+import { setPalletCargo } from "./vehicle-cargo.js";
 import { createRaceMode } from "./race-mode.js";
 import { HANDLING, ease, drivingStep } from "./driving.js";
 import { createEngineAudio } from "./engine-audio.js";
@@ -824,6 +825,7 @@ async function init() {
     const leaderboard = createLeaderboard({ toast });
     raceMode = createRaceMode({
       leaderboard,
+      setCargo: cargo => setPalletCargo(car, cargo === "pallets"),
       scene, roads, starts: startPoints, heightAt, toast,
       begin(startPoint, path) {
         running = false;

@@ -58,6 +58,7 @@ export const START_LOCATIONS = [
 // The Galley: inishbofin.com/directory-food_drink/listing/the-galley/
 // Doonmore: doonmore.com/contact; Day's: Connemara Ireland map directions.
 export const RACE_LOCATIONS = [
+  { id: "duamhach", name: "Duamhach beach access", coordinates: [-10.1813945, 53.6162549], roadId: "505950411", roadKinds: ["track"] },
   { id: "hostel", name: "Hostel", coordinates: [-10.1981985, 53.6157761], roadId: "215535456" },
   { id: "old-pier-race", name: "Old Pier race start", coordinates: [-10.2065161, 53.6129008], roadId: "505885238", roadKinds: ["service"], pierAccess: true },
   { id: "new-pier", name: "New Pier", coordinates: [-10.2123804, 53.6135346], roadId: "215535457", roadKinds: ["service"] },

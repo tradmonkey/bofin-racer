@@ -39,7 +39,7 @@ test('leaderboard reads support all vehicles and selected vehicle; failures stay
  assert.equal(response.status,503);assert.match((await response.json()).error,/local best/);
 });
 test('every production course can be reconstructed for server-side checkpoint validation',()=>{
- const courses=loadCourses();assert.equal(courses.size,5);
+ const courses=loadCourses();assert.equal(courses.size,6);
  for(const c of courses.values())assert.ok(c.checkpoints.length>1);
 });
 

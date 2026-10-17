@@ -1,4 +1,5 @@
 export const ROUTES = [
+  { id: 'murrays-beach-party', name: 'Murrays → Beach Party (Duamhach)', from: 'doonmore', to: 'duamhach', cargo: 'pallets' },
   { id: 'pub-murrays', name: 'The Pub → Murrays', from: 'old-pier-race', to: 'doonmore' },
   { id: 'clossey', name: 'Clossey Challenge', from: 'east', to: 'clossey-finish' },
   { id: 'doonmore-days', name: "Murrays → The Pub", from: 'doonmore', to: 'days' },
