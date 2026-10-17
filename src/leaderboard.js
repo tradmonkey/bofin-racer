@@ -9,7 +9,6 @@ export function createLeaderboard({ toast }) {
   let resultCourse=null, submission=0;
   function openBoard(course=$('race-route').value) {
     $('leaderboard-course').value=course;
-    $('leaderboard-vehicle').value='';
     if(resultDialog.open)resultDialog.close();
     if(!dialog.open)dialog.showModal();
     refresh();
@@ -25,7 +24,6 @@ export function createLeaderboard({ toast }) {
   name.addEventListener('input',()=>name.setCustomValidity(''));
   name.addEventListener('change',()=>{name.value=normalizeName(name.value);try{localStorage.setItem('bofin-driver-name',name.value);}catch{}});
   share.addEventListener('change',()=>{name.required=share.checked;});
-  for(const v of VEHICLES) $('leaderboard-vehicle').add(new Option(v.name,v.id));
   async function api(url,options={}) {
     const response=await fetch(url,{...options,signal:AbortSignal.timeout(12000)});
     const type=response.headers.get('content-type')||'';
@@ -36,11 +34,11 @@ export function createLeaderboard({ toast }) {
   }
   async function refresh() {
     const request=++sequence;
-    const course=$('leaderboard-course').value, vehicle=$('leaderboard-vehicle').value;
+    const course=$('leaderboard-course').value;
     $('leaderboard-route-name').textContent=ROUTES.find(r=>r.id===course)?.name||'';
     $('leaderboard-rows').replaceChildren();message.textContent='Loading scores…';
     try {
-      const data=await api(`/api/leaderboard?${new URLSearchParams({course,vehicle})}`);
+      const data=await api(`/api/leaderboard?${new URLSearchParams({course})}`);
       if(request!==sequence)return;
       if(!Array.isArray(data.rows))throw new Error('Leaderboard unavailable.');
       const rows=data.rows.filter(r=>typeof r.player_name==='string'&&Number.isFinite(Number(r.time_s))&&Number(r.time_s)>0);
@@ -56,8 +54,6 @@ export function createLeaderboard({ toast }) {
   }
   $('leaderboard-toggle').onclick=()=>openBoard();
   $('leaderboard-course').onchange=refresh;
-  $('leaderboard-refresh').onclick=refresh;
-  $('leaderboard-vehicle').onchange=refresh;
   $('race-route').addEventListener('change',()=>{if(dialog.open)refresh();});
   return {
     beforeRace() {
