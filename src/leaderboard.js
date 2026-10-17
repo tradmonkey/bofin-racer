@@ -4,6 +4,20 @@ import { normalizeName } from './leaderboard-rules.js';
 export function createLeaderboard({ toast }) {
   const $=id=>document.getElementById(id);
   const name=$('driver-name'), share=$('share-times'), board=$('leaderboard-content'), message=$('leaderboard-message');
+  const dialog=$('leaderboard-dialog'), resultDialog=$('race-result');
+  for(const route of ROUTES) $('leaderboard-course').add(new Option(route.name,route.id));
+  let resultCourse=null, submission=0;
+  function openBoard(course=$('race-route').value) {
+    $('leaderboard-course').value=course;
+    $('leaderboard-vehicle').value='';
+    if(resultDialog.open)resultDialog.close();
+    if(!dialog.open)dialog.showModal();
+    refresh();
+  }
+  $('leaderboard-open').onclick=()=>openBoard();
+  $('leaderboard-close').onclick=()=>dialog.close();
+  $('result-close').onclick=()=>resultDialog.close();
+  $('result-board').onclick=()=>openBoard(resultCourse);
   let playerId, sequence=0;
   try { name.value=localStorage.getItem('bofin-driver-name')||''; playerId=localStorage.getItem('bofin-driver-id'); } catch {}
   if (!/^[0-9a-f-]{36}$/i.test(playerId||'')) playerId=crypto.randomUUID();
@@ -22,7 +36,7 @@ export function createLeaderboard({ toast }) {
   }
   async function refresh() {
     const request=++sequence;
-    const course=$('race-route').value, vehicle=$('leaderboard-vehicle').value;
+    const course=$('leaderboard-course').value, vehicle=$('leaderboard-vehicle').value;
     $('leaderboard-route-name').textContent=ROUTES.find(r=>r.id===course)?.name||'';
     $('leaderboard-rows').replaceChildren();message.textContent='Loading scores…';
     try {
@@ -40,10 +54,11 @@ export function createLeaderboard({ toast }) {
       message.textContent=rows.length?'':'No scores yet. Set the first time!';
     } catch(error) {if(request===sequence)message.textContent=error.name==='TimeoutError'?'Leaderboard took too long. Try again.':error.message;}
   }
-  $('leaderboard-toggle').onclick=()=>{board.hidden=!board.hidden;$('leaderboard-toggle').setAttribute('aria-expanded',String(!board.hidden));if(!board.hidden)refresh();};
+  $('leaderboard-toggle').onclick=()=>openBoard();
+  $('leaderboard-course').onchange=refresh;
   $('leaderboard-refresh').onclick=refresh;
   $('leaderboard-vehicle').onchange=refresh;
-  $('race-route').addEventListener('change',()=>{if(!board.hidden)refresh();});
+  $('race-route').addEventListener('change',()=>{if(dialog.open)refresh();});
   return {
     beforeRace() {
       if(!share.checked)return true;
@@ -54,14 +69,31 @@ export function createLeaderboard({ toast }) {
     },
     identity() {return share.checked?{playerId,name:normalizeName(name.value)}:null;},
     async submit(run) {
+      const current=++submission;
+      resultCourse=run.course;
+      $('result-course').textContent=ROUTES.find(r=>r.id===run.course)?.name||'';
+      $('result-time').textContent=formatTime(run.time);
+      $('result-title').textContent='Finished!';
+      $('result-rank').textContent=run.identity?'Checking your best overall ranking…':'Private run — turn on sharing next time to chase a leaderboard place.';
+      $('result-board').hidden=!run.identity;
+      if(!resultDialog.open)resultDialog.showModal();
       if(!run.identity)return;
       $('leaderboard-submit-status').textContent='Sharing completed run…';
       try {
         const result=await api('/api/leaderboard',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ ...run.identity,course:run.course,vehicle:run.vehicle,time:run.time,samples:run.samples })});
+        if(current!==submission)return;
+        const onBoard=Number.isInteger(result.rank)&&result.rank>0&&result.rank<=20;
+        $('result-title').textContent=onBoard?'You made the board!':result.rank?'Hard luck!':'Time shared!';
+        $('result-rank').textContent=onBoard
+          ? `Your best sits at #${result.rank} in the overall top 20.${result.saved?'':' Your faster time is still the one to beat.'}`
+          : result.rank ? 'You didn’t make the top 20 this time. Another lap — there’s more in the tank!'
+          : 'Your time is saved. Open the leaderboard to see the latest scores.';
         $('leaderboard-submit-status').textContent=result.saved?'Your best time is on the leaderboard.':'Your faster leaderboard time is already saved.';
         toast(result.saved?'Time shared on the leaderboard!':'Run finished · your faster leaderboard time is kept.');
-        if(!board.hidden)refresh();
+        if(dialog.open)refresh();
       } catch(error) {
+        if(current!==submission)return;
+        $('result-rank').textContent='Leaderboard unavailable — we couldn’t check your position. Your local best and ghost still work.';
         $('leaderboard-submit-status').textContent='Could not share this run. Local bests and ghosts still work.';
         toast('Could not share this run · local bests and ghosts still work.');
       }

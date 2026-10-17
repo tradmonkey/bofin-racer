@@ -13,7 +13,7 @@ export function createHandler({ getSql, getCourses }) {
         const sql = getSql();
         const rows = vehicle
           ? await sql`SELECT player_name, vehicle, time_s, updated_at FROM race_results WHERE course_id = ${course} AND vehicle = ${vehicle} ORDER BY time_s ASC, updated_at ASC LIMIT 20`
-          : await sql`SELECT player_name, vehicle, time_s, updated_at FROM (SELECT DISTINCT ON (player_id) player_name, vehicle, time_s, updated_at FROM race_results WHERE course_id = ${course} ORDER BY player_id, time_s ASC, updated_at ASC) AS best ORDER BY time_s ASC, updated_at ASC LIMIT 20`;
+          : await sql`SELECT player_name, vehicle, time_s, updated_at FROM (SELECT DISTINCT ON (player_id) player_id, player_name, vehicle, time_s, updated_at FROM race_results WHERE course_id = ${course} ORDER BY player_id, time_s ASC, updated_at ASC) AS best ORDER BY time_s ASC, player_id ASC LIMIT 20`;
         return json({rows});
       }
       const origin = req.headers.get('origin');
@@ -31,7 +31,10 @@ export function createHandler({ getSql, getCourses }) {
       const sql=getSql();
       // Atomic best-only update: slower runs and replayed submissions cannot replace a best.
       const rows=await sql`INSERT INTO race_results (player_id, course_id, vehicle, player_name, time_s) VALUES (${result.playerId}, ${result.course}, ${result.vehicle}, ${result.name}, ${result.time}) ON CONFLICT (player_id, course_id, vehicle) DO UPDATE SET player_name = EXCLUDED.player_name, time_s = EXCLUDED.time_s, updated_at = now() WHERE EXCLUDED.time_s < race_results.time_s RETURNING time_s`;
-      return json({saved:rows.length>0},rows.length?201:200);
+      // Rank the driver's best across all vehicles, matching the overall board.
+      const ranking = await sql`WITH best AS (SELECT player_id, MIN(time_s) AS time_s FROM race_results WHERE course_id = ${result.course} GROUP BY player_id), ranked AS (SELECT player_id, ROW_NUMBER() OVER (ORDER BY time_s ASC, player_id ASC) AS position FROM best) SELECT position FROM ranked WHERE player_id = ${result.playerId}`;
+      const rank = Number(ranking[0]?.position);
+      return json({saved:rows.length>0,rank:Number.isInteger(rank)&&rank>0?rank:null,limit:20},rows.length?201:200);
     } catch(error) {
       console.error('Leaderboard unavailable:',error?.name || 'Error');
       return json({error:'Leaderboard unavailable. Your local best and ghost still work.'},503);

@@ -1046,3 +1046,21 @@ body:not(.driving) #hud { display: none; }
 #leaderboard-content th, #leaderboard-content td { padding: 8px 5px; border-bottom: 1px solid #ffffff20; }
 #leaderboard-content td:nth-child(2) { overflow-wrap: anywhere; }
 #leaderboard-content th:last-child, #leaderboard-content td:last-child { white-space: nowrap; text-align: right; font-variant-numeric: tabular-nums; }
+
+.scores-dialog { width: min(620px, calc(100vw - 28px)); box-sizing: border-box; max-height: calc(100dvh - 32px); overflow: auto; padding: 24px; border: 1px solid #d5ff7760; border-radius: 18px; background: #123b32; color: #f4f6e9; box-shadow: 0 24px 80px #0008; }
+.scores-dialog::backdrop { background: #061d19b8; backdrop-filter: blur(6px); }
+.scores-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.scores-heading h2 { margin: 0; font-size: 25px; }
+.scores-dialog button { padding: 12px 16px; border: 1px solid #d5ff7770; border-radius: 8px; background: #284d3c; color: inherit; cursor: pointer; }
+.scores-dialog select { width: 100%; padding: 10px; background: #234b42; color: inherit; border: 1px solid #ffffff40; border-radius: 7px; }
+#leaderboard-toggle { margin-top: 14px; padding: 14px; font-weight: 700; border-color: #d5ff77; background: #d5ff771c; }
+#leaderboard-content { margin: 16px 0 0; }
+#leaderboard-content small { font-size: 11px; line-height: 1.5; }
+#leaderboard-content label { display: block; margin-bottom: 7px; font-size: 11px; }
+#race-result { text-align: center; padding: 32px 24px; }
+.result-eyebrow { color: #d5ff77; letter-spacing: 3px; font-size: 11px; }
+#result-title { font-size: 32px; margin: 12px 0; }
+#result-time { display: block; font-size: clamp(40px, 10vw, 64px); font-variant-numeric: tabular-nums; color: #d5ff77; margin: 20px 0; }
+#result-rank { line-height: 1.6; }
+.result-actions { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin-top: 24px; }
+@media(max-width: 540px) { .scores-dialog { padding: 16px; } #leaderboard-content { padding: 8px; } #leaderboard-content td { font-size: 11px; } .header-actions { gap: 5px; } #leaderboard-open { font-size: 9px; padding: 8px; } }

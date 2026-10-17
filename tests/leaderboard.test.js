@@ -59,3 +59,18 @@ test('recordings following every real route pass the server validator',()=>{
   assert.equal(validateSubmission(data,course).course,id);
  }
 });
+
+test('submission returns the overall best ranking, including the top-20 boundary',async()=>{
+ for(const position of [1,20,21]) {
+  const queries=[];
+  const handler=createHandler({getCourses:()=>new Map([['doonmore-days',course]]),getSql:()=>async(strings,...values)=>{
+   const query=strings.join('?');queries.push({query,values});
+   return query.includes('WITH best')?[{position:String(position)}]:[{time_s:5}];
+  }});
+  const response=await handler(request(valid()));const result=await response.json();
+  assert.equal(result.rank,position);assert.equal(result.limit,20);
+  assert.match(queries[1].query,/MIN\(time_s\)/);
+  assert.match(queries[1].query,/ROW_NUMBER/);
+  assert.ok(queries[1].values.includes(valid().playerId));
+ }
+});

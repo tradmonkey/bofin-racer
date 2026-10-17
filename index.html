@@ -22,6 +22,7 @@
         <i></i> INISHBOFIN, CO. GALWAY <span>53.62° N · 10.21° W</span>
       </div>
       <div class="header-actions">
+        <button type="button" id="leaderboard-open" aria-haspopup="dialog" title="Leaderboards">SCORES</button>
         <button type="button" id="map-toggle" aria-expanded="false" aria-controls="map-panel" aria-label="Show map" title="Show map">MAP</button>
         <button id="sound" aria-label="Mute engine sound" aria-pressed="false" title="Mute engine sound"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><g class="sound-waves"><path d="M15 8a6 6 0 0 1 0 8M18 5a10 10 0 0 1 0 14"/></g><path class="sound-muted" d="m16 9 6 6m0-6-6 6"/></svg></button>
         <button id="help" title="Controls and map sources" aria-label="Field guide">?</button>
@@ -96,14 +97,8 @@
           <button id="race-start" type="button" disabled>Start timed route</button>
           <small>Pass every green gate. Bests and ghosts stay on this browser. Boost allowed.</small>
           <p id="leaderboard-submit-status" role="status"></p>
-          <button id="leaderboard-toggle" type="button" aria-expanded="false" aria-controls="leaderboard-content">Leaderboard</button>
-          <section id="leaderboard-content" hidden aria-label="Route leaderboard">
-            <h3 id="leaderboard-route-name"></h3>
-            <div class="leaderboard-filters"><label for="leaderboard-vehicle">Vehicle</label><select id="leaderboard-vehicle"><option value="">All vehicles</option></select><button id="leaderboard-refresh" type="button">Refresh</button></div>
-            <p id="leaderboard-message" role="status"></p>
-            <div class="leaderboard-table-wrap"><table><thead><tr><th scope="col">#</th><th scope="col">Driver</th><th scope="col">Vehicle</th><th scope="col">Time</th></tr></thead><tbody id="leaderboard-rows"></tbody></table></div>
-            <small>Top 20. Best time per driver; vehicle filters show each driver's best in that vehicle. Driver identity is saved on this browser.</small>
-          </section>
+          <button id="leaderboard-toggle" type="button" aria-haspopup="dialog">View route leaderboard →</button>
+
         </div>
         <button id="start" class="primary" disabled>
           Preparing the island… <span>↗</span>
@@ -250,6 +245,22 @@
         </button>
       </div>
     </div>
+    <dialog id="leaderboard-dialog" class="scores-dialog" aria-labelledby="scores-title">
+      <div class="scores-heading"><h2 id="scores-title">Island leaderboards</h2><button type="button" id="leaderboard-close" aria-label="Close leaderboard">✕</button></div>
+          <section id="leaderboard-content" aria-label="Route leaderboard">
+            <label for="leaderboard-course">ROUTE</label><select id="leaderboard-course"></select><h3 id="leaderboard-route-name"></h3>
+            <div class="leaderboard-filters"><label for="leaderboard-vehicle">Vehicle</label><select id="leaderboard-vehicle"><option value="">All vehicles</option></select><button id="leaderboard-refresh" type="button">Refresh</button></div>
+            <p id="leaderboard-message" role="status"></p>
+            <div class="leaderboard-table-wrap"><table><thead><tr><th scope="col">#</th><th scope="col">Driver</th><th scope="col">Vehicle</th><th scope="col">Time</th></tr></thead><tbody id="leaderboard-rows"></tbody></table></div>
+            <small>Top 20. Best time per driver; vehicle filters show each driver's best in that vehicle. Driver identity is saved on this browser.</small>
+          </section>
+    </dialog>
+    <dialog id="race-result" class="scores-dialog" aria-labelledby="result-title">
+      <p class="result-eyebrow">CHEQUERED FLAG</p><h2 id="result-title">Finished!</h2>
+      <p id="result-course"></p><strong id="result-time"></strong>
+      <p id="result-rank" role="status">Checking the leaderboard…</p>
+      <div class="result-actions"><button type="button" id="result-board">View leaderboard →</button><button type="button" id="result-close">Back to the island</button></div>
+    </dialog>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

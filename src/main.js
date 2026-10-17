@@ -647,8 +647,10 @@ function animate() {
   requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 0.04);
   if (!ready) return;
-  if (running && !paused && !raceMode?.countingDown) drive(dt);
-  raceMode?.tick(dt, state, heading, running && !paused && !document.hidden);
+  const scoresOpen = !!document.querySelector(".scores-dialog[open]");
+  if (scoresOpen) { keys.clear(); clearTouchControls(); }
+  if (running && !paused && !scoresOpen && !raceMode?.countingDown) drive(dt);
+  raceMode?.tick(dt, state, heading, running && !paused && !scoresOpen && !document.hidden);
   engineAudio.update(running && !paused && !document.hidden && !inDrain, speed,
     pressed("w") || pressed("ArrowUp"), HANDLING[selectedVehicle]);
   const behind = new THREE.Vector3(-Math.sin(heading), 0, -Math.cos(heading)),
@@ -1065,7 +1067,7 @@ document.addEventListener("focusin", (e) => {
   if (editingControl(e.target)) { keys.clear(); clearTouchControls(); }
 });
 window.addEventListener("keydown", (e) => {
-  if (e.isComposing || editingControl(e.target) || editingControl(document.activeElement)) return;
+  if (document.querySelector(".scores-dialog[open]") || e.isComposing || editingControl(e.target) || editingControl(document.activeElement)) return;
   const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
   if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", " "].includes(k))
     e.preventDefault();
