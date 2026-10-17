@@ -9,8 +9,8 @@
       name="description"
       content="How long does it take to get from Murray's to the Pub when the murder is on you?"
     />
-    <script type="module" crossorigin src="./assets/index-CvnwpBUh.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-DUZygcS2.css">
+    <script type="module" crossorigin src="./assets/index-DLpzRYpi.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-BEQRyfBQ.css">
   </head>
   <body>
     <canvas id="world" aria-label="3D driving view"></canvas>
@@ -87,8 +87,23 @@
         <div class="race-picker">
           <label for="race-route">TIMED ROUTES</label>
           <select id="race-route" aria-label="Timed route"></select>
+          <div class="driver-entry">
+            <label for="driver-name">DRIVER NAME</label>
+            <input id="driver-name" type="text" maxlength="24" autocomplete="nickname" placeholder="Your name" aria-describedby="driver-hint" />
+            <label class="share-times"><input id="share-times" type="checkbox" checked /> Share completed times on the leaderboard</label>
+            <small id="driver-hint">Your name is public when you share a time. Remembered on this browser. Turn off sharing to race privately.</small>
+          </div>
           <button id="race-start" type="button" disabled>Start timed route</button>
-          <small>Pass every green gate. Bests and ghosts saved per vehicle on this browser. Boost allowed.</small>
+          <small>Pass every green gate. Bests and ghosts stay on this browser. Boost allowed.</small>
+          <p id="leaderboard-submit-status" role="status"></p>
+          <button id="leaderboard-toggle" type="button" aria-expanded="false" aria-controls="leaderboard-content">Leaderboard</button>
+          <section id="leaderboard-content" hidden aria-label="Route leaderboard">
+            <h3 id="leaderboard-route-name"></h3>
+            <div class="leaderboard-filters"><label for="leaderboard-vehicle">Vehicle</label><select id="leaderboard-vehicle"><option value="">All vehicles</option></select><button id="leaderboard-refresh" type="button">Refresh</button></div>
+            <p id="leaderboard-message" role="status"></p>
+            <div class="leaderboard-table-wrap"><table><thead><tr><th scope="col">#</th><th scope="col">Driver</th><th scope="col">Vehicle</th><th scope="col">Time</th></tr></thead><tbody id="leaderboard-rows"></tbody></table></div>
+            <small>Top 20. Best time per driver; vehicle filters show each driver's best in that vehicle. Driver identity is saved on this browser.</small>
+          </section>
         </div>
         <button id="start" class="primary" disabled>
           Preparing the island… <span>↗</span>

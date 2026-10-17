@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { ROUTES, buildRoute, crossedCheckpoint, ghostPose, formatTime } from './racing.js';
 import { makeVehicle, disposeVehicle } from './vehicles.js';
-export function createRaceMode({ scene, roads, starts, heightAt, begin, toast }) {
+export function createRaceMode({ scene, roads, starts, heightAt, begin, toast, leaderboard = null }) {
   const select = document.getElementById('race-route');
   const status = document.getElementById('race-status');
   const countdown = document.getElementById('race-countdown');
@@ -67,14 +67,17 @@ export function createRaceMode({ scene, roads, starts, heightAt, begin, toast })
     marker.position.set(p.x, heightAt(p.x, p.z) + 0.45, p.z);
   }
   startButton.onclick = () => {
+    if (leaderboard && !leaderboard.beforeRace()) return;
     cancel();
     const course = courses.get(select.value);
     if (!course) return;
     const vehicle = begin(starts[course.from], course.path);
     const best = readBest(course.id, vehicle);
-    race = { course, vehicle, best, countdown: 3, elapsed: 0, checkpoint: 0, samples: [], previous: null };
+    race = { course, vehicle, best, identity: leaderboard?.identity(), countdown: 3, elapsed: 0, checkpoint: 0, samples: [], previous: null };
     updateMetrics(race, starts[course.from]);
     status.textContent = course.name;
+    // Record the actual starting pose at t=0 for server-side movement checks.
+    race.samples.push({t:0,x:starts[course.from].x,z:starts[course.from].z,heading:Math.atan2(course.path[1].x-course.path[0].x,course.path[1].z-course.path[0].z)});
     showCountdown("3");
     ghost = best ? makeVehicle(vehicle) : null;
     if (ghost) {
@@ -140,7 +143,10 @@ export function createRaceMode({ scene, roads, starts, heightAt, begin, toast })
           let saved = true;
           if (record) try { localStorage.setItem(key(r.course.id, r.vehicle), JSON.stringify({ time: r.elapsed, samples: r.samples })); } catch { saved = false; }
           const result = `${record ? 'Personal best!' : 'Finished!'} ${formatTime(r.elapsed)}${r.best ? ` · Previous best ${formatTime(r.best.time)}` : ''}${!saved ? ' · Storage unavailable; record not saved' : ''}`;
-          cancel(result); toast(result); return;
+          const completed = { identity:r.identity, course:r.course.id, vehicle:r.vehicle, time:r.elapsed, samples:r.samples };
+          cancel(result); toast(result);
+          if (leaderboard) void leaderboard.submit(completed);
+          return;
         }
         updateMarker();
       }

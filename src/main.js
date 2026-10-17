@@ -1,3 +1,4 @@
+import { createLeaderboard } from "./leaderboard.js";
 import { createAirstrip, addAirstrip } from "./airstrip.js";
 import { WATER_RANGE, waterRangeStep } from "./water-driving.js";
 import { addCraftHut } from "./craft-hut.js";
@@ -820,7 +821,9 @@ async function init() {
         resolveStart(location, roads, coast, obstacles),
       ]),
     );
+    const leaderboard = createLeaderboard({ toast });
     raceMode = createRaceMode({
+      leaderboard,
       scene, roads, starts: startPoints, heightAt, toast,
       begin(startPoint, path) {
         running = false;

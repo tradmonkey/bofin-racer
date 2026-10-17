@@ -1028,3 +1028,21 @@ body:not(.driving) #hud { display: none; }
 #airstrip-status { position: absolute; bottom: calc(100% + 8px); right: 0; max-width: 100%; padding: 9px 12px; border: 1px solid #65eded; border-radius: 7px; background: #123b38ed; color: #d5ff77; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
 #airstrip-status[hidden] { display: none; }
 @media (max-width: 750px) { #airstrip-status { font-size: 10px; max-width: 64%; } }
+
+/* Shared time-trial scores. */
+.driver-entry { display: grid; gap: 7px; margin-top: 10px; }
+#driver-name { width: 100%; box-sizing: border-box; border: 1px solid #ffffff40; border-radius: 6px; background: #254b44; color: #f6f8ee; font: inherit; padding: 10px 12px; }
+.race-picker .share-times { display: flex; align-items: center; gap: 8px; font-size: 12px; letter-spacing: 0; color: #f6f8ee; }
+#share-times { accent-color: #d5f995; width: 17px; height: 17px; flex-shrink: 0; }
+#leaderboard-submit-status:empty { display: none; }
+#leaderboard-submit-status, #leaderboard-message { font-size: 12px; line-height: 1.5; margin: 8px 0; }
+#leaderboard-content { padding: 12px; margin-top: 8px; background: #102e2c; border-radius: 8px; }
+#leaderboard-content h3 { margin: 0 0 10px; font-size: 15px; }
+.leaderboard-filters { display: flex; align-items: center; gap: 7px; }
+.leaderboard-filters select { flex: 1; min-width: 0; }
+.leaderboard-filters label { font-size: 11px; letter-spacing: 0; }
+.leaderboard-table-wrap { overflow-x: auto; margin: 10px 0; }
+#leaderboard-content table { width: 100%; border-collapse: collapse; font-size: 12px; text-align: left; }
+#leaderboard-content th, #leaderboard-content td { padding: 8px 5px; border-bottom: 1px solid #ffffff20; }
+#leaderboard-content td:nth-child(2) { overflow-wrap: anywhere; }
+#leaderboard-content th:last-child, #leaderboard-content td:last-child { white-space: nowrap; text-align: right; font-variant-numeric: tabular-nums; }

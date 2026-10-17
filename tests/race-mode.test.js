@@ -47,3 +47,24 @@ test('timed runs pause, save only improved records and replay the saved ghost', 
   run(0.1);
   assert.match(status.textContent, /record not saved/);
 });
+
+
+test('leaderboard opt-out/name check and completed-run callback do not affect local ghosts', () => {
+  const elements = new Map();
+  globalThis.document = { getElementById(id) {
+    if (!elements.has(id)) elements.set(id, { value: '', textContent: '', hidden: false, add() {} });
+    return elements.get(id);
+  } };
+  globalThis.Option = class { constructor(text,value) {this.textContent=text;this.value=value;} };
+  const store=new Map();globalThis.localStorage={getItem:k=>store.get(k)||null,setItem:(k,v)=>store.set(k,v)};
+  const roads=[{points:[[0,0],[300,0]]}], starts=Object.fromEntries(['hostel','new-pier','clossey-finish','galley','doonmore','days','harbour','old-pier','old-pier-race','north','west','east'].map(k=>[k,{x:k==='doonmore'?0:300,z:0}]));
+  let allowed=false,began=0,submitted;
+  const mode=createRaceMode({scene:new THREE.Scene(),roads,starts,heightAt:()=>0,begin:()=>{began++;return 'fiesta';},toast(){},leaderboard:{beforeRace:()=>allowed,identity:()=>({name:'Tom'}),submit:run=>{submitted=run;}}});
+  elements.get('race-start').onclick();assert.equal(began,0);
+  allowed=true;elements.get('race-start').onclick();assert.equal(began,1);
+  mode.tick(3,starts.doonmore,0,true);
+  for(const p of buildRoute(roads,starts.doonmore,starts.days).checkpoints)mode.tick(1,p,0,true);
+  assert.equal(mode.active,false);assert.equal(submitted.identity.name,'Tom');assert.equal(submitted.course,'doonmore-days');
+  assert.equal(submitted.samples[0].t,0);assert.equal(submitted.samples[0].x,0);
+  assert.ok(store.has('bofin-race-v1:doonmore-days:fiesta'));
+});
