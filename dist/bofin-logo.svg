@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Chequered racing flag in a green circle">
+  <circle cx="32" cy="32" r="32" fill="#173735"/>
+  <g transform="rotate(12 32 32)">
+    <path d="M19 48V15" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>
+    <path d="M21 16h27v24H21z" fill="#fff"/>
+    <path d="M21 16h6.75v6H21zm13.5 0h6.75v6H34.5zm-6.75 6h6.75v6h-6.75zm13.5 0H48v6h-6.75zM21 28h6.75v6H21zm13.5 0h6.75v6H34.5zm-6.75 6h6.75v6h-6.75zm13.5 0H48v6h-6.75z" fill="#151a17"/>
+    <path d="M21 16h27v24H21" fill="none" stroke="#ffffff" stroke-width="1.2" stroke-linejoin="round"/>
+  </g>
+</svg>

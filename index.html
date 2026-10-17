@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#112b2b" />
+    <title>Bofin Racer — Flat Out Around the Island</title>
+    <meta
+      name="description"
+      content="How long does it take to get from Murray's to the Pub when the murder is on you?"
+    />
+  </head>
+  <body>
+    <canvas id="world" aria-label="3D driving view"></canvas>
+    <header>
+      <a class="brand" href="./"
+        ><img class="brand-icon" src="./bofin-logo.svg" alt="Chequered racing flag in a green circle" /> BOFIN RACER<span class="tag"
+          >ISLAND EXPLORER</span
+        ></a
+      >
+      <div class="location">
+        <i></i> INISHBOFIN, CO. GALWAY <span>53.62° N · 10.21° W</span>
+      </div>
+      <div class="header-actions">
+        <button type="button" id="map-toggle" aria-expanded="false" aria-controls="map-panel" aria-label="Show map" title="Show map">MAP</button>
+        <button id="sound" aria-label="Mute engine sound" aria-pressed="false" title="Mute engine sound"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><g class="sound-waves"><path d="M15 8a6 6 0 0 1 0 8M18 5a10 10 0 0 1 0 14"/></g><path class="sound-muted" d="m16 9 6 6m0-6-6 6"/></svg></button>
+        <button id="help" title="Controls and map sources" aria-label="Field guide">?</button>
+      </div>
+    </header>
+    <main>
+      <section id="intro" class="panel">
+        <div id="mode-choice">
+          <div class="mode-eyebrow">BOFIN RACER</div>
+          <h1>Choose your drive</h1>
+          <div class="mode-options">
+            <button type="button" id="choose-timed"><strong>Time Trial <span>→</span></strong><small>Race the clock. Beat your best.</small></button>
+            <button type="button" id="choose-free"><strong>Free drive <span>→</span></strong><small>Pick a spot and explore the island.</small></button>
+          </div>
+        </div>
+        <div id="mode-setup" hidden>
+          <button type="button" id="mode-back">← Change mode</button>
+          <h2 id="mode-title">Free drive</h2>
+        <div class="start-picker" id="free-options">
+          <label for="start-location">CHOOSE YOUR START</label>
+          <select
+            id="start-location"
+            disabled
+            aria-describedby="start-description"
+          ></select>
+          <p id="start-description">Choose a location to explore the island.</p>
+        </div>
+        <fieldset class="vehicle-picker">
+          <legend>CHOOSE YOUR VEHICLE</legend>
+          <figure class="selected-vehicle-preview">
+            <img id="selected-vehicle-image" alt="Selected vehicle preview" />
+            <figcaption id="selected-vehicle-name">Dave's Jeep</figcaption>
+          </figure>
+          <div>
+            <button type="button" data-vehicle="jeep" aria-pressed="true">
+              <img alt="Dave's Jeep preview" /><span>Dave's Jeep</span>
+            </button>
+            <button type="button" data-vehicle="tractor" aria-pressed="false">
+              <img alt="MJ's Tractor preview" /><span>MJ's Tractor</span>
+            </button>
+            <button type="button" data-vehicle="dumper" aria-pressed="false">
+              <img alt="Pat's Dumper preview" /><span>Pat's Dumper</span>
+            </button>
+            <button type="button" data-vehicle="jetta" aria-pressed="false">
+              <img alt="Tom's Jetta preview" /><span>Tom's Jetta</span>
+            </button>
+            <button type="button" data-vehicle="fiesta" aria-pressed="false">
+              <img alt="Pad's Fiesta preview" /><span>Pad's Fiesta</span>
+            </button>
+            <button type="button" data-vehicle="corolla" aria-pressed="false">
+              <img alt="Togg's Corolla preview" /><span>Togg's Corolla</span>
+            </button>
+            <button type="button" data-vehicle="signet" aria-pressed="false">
+              <img alt="Johnny's Signet preview" /><span>Johnny's Signet</span>
+            </button>
+            <button type="button" data-vehicle="kursk" aria-pressed="false">
+              <img alt="The Kursk preview" /><span>The Kursk</span>
+            </button>
+          </div>
+        </fieldset>
+        <div class="race-picker">
+          <label for="race-route">TIMED ROUTES</label>
+          <select id="race-route" aria-label="Timed route"></select>
+          <button id="race-start" type="button" disabled>Start timed route</button>
+          <small>Pass every green gate. Bests and ghosts saved per vehicle on this browser. Boost allowed.</small>
+        </div>
+        <button id="start" class="primary" disabled>
+          Preparing the island… <span>↗</span>
+        </button>
+        </div>
+        <button id="resume" class="hidden">Resume current drive</button>
+      </section>
+      <div id="loading" role="status">Loading map & terrain…</div>
+      <div id="toast" role="status"></div>
+      <section id="guide" class="panel hidden">
+        <button id="close-guide" class="close" aria-label="Close field guide">
+          ×
+        </button>
+        <div class="eyebrow">YOUR FIELD GUIDE</div>
+        <h2>A little room to roam.</h2>
+        <p>
+          <b>W / ↑</b> Accelerate &nbsp; <b>S / ↓</b> Brake / reverse<br /><b
+            >A D / ← →</b
+          >
+          Steer &nbsp; <b>Space</b> Handbrake<br /><b>C</b> Camera &nbsp;
+          <b>R</b> Return to road &nbsp; <b>Esc</b> Pause
+        </p>
+        <p>
+          Mapped roads and buildings from
+          <a
+            href="https://www.openstreetmap.org/copyright"
+            target="_blank"
+            rel="noreferrer"
+            >OpenStreetMap contributors</a
+          >. Terrain from
+          <a
+            href="https://registry.opendata.aws/copernicus-dem/"
+            target="_blank"
+            rel="noreferrer"
+            >Copernicus DEM GLO-30</a
+          >. One world unit equals one metre.
+        </p>
+        <p class="fine">
+          A stylised prototype. The harbour includes mapped piers, field walls
+          and parking areas. Roofs, windows, wall heights and pier elevations
+          are approximate. Unclassified building footprints are hidden pending
+          verification. Mapped ruins appear as low walls; sheds and garages use
+          smaller models. Building footprints are mapped, but most heights and
+          scenery are estimates. Surface elevations are about 30 m resolution;
+          small road bumps and cambers are not captured. Boundary collisions and
+          simple driving physics are included.
+        </p>
+      </section>
+    </main>
+    <aside id="map-panel" hidden>
+
+      <canvas
+        id="map"
+        width="320"
+        height="220"
+        aria-label="Island minimap showing your location"
+      ></canvas>
+      <div class="map-footer" id="map-details">
+        <i></i> <span id="road-name">Inishbofin</span><span>1:1 SCALE</span>
+      </div>
+    </aside>
+    <div id="race-countdown" hidden role="status" aria-live="assertive" aria-atomic="true"></div>
+    <section id="hud">
+      <div id="airstrip-status" hidden></div>
+      <div id="water-range" hidden role="status">Water range: 150 m</div>
+    <aside id="race-panel" hidden aria-label="Timed route progress">
+      <div class="race-metrics">
+        <div class="race-metric"><span>TIME</span><strong id="race-time">0:00.00</strong></div>
+        <div class="race-metric"><span>GATES</span><strong id="race-gates">0/0</strong></div>
+        <div class="race-metric"><span>NEXT</span><strong id="race-next">—</strong></div>
+        <div class="race-metric"><span>BEST</span><strong id="race-best">—</strong></div>
+      </div>
+      <div id="race-status" role="status" aria-live="off"></div>
+      <button id="race-cancel" type="button">End run</button>
+    </aside>
+
+      <div class="speed">
+        <strong id="speed">00</strong>
+        <div>KM/H <span id="gear">N</span></div>
+      </div>
+      <div class="journey">
+        <span>DISTANCE EXPLORED</span
+        ><b id="distance">0.00 <small>km</small></b>
+      </div>
+      <button id="locations-menu">M <span>Restart</span></button>
+      <button id="boost" aria-pressed="false">B <span>Boost off</span></button>
+
+      <button id="reset">R <span>Back to road</span></button>
+    </section>
+    <footer>
+      <span
+        >W A S D <b>/</b> ARROW KEYS
+        <span class="footer-hint"
+          >TO DRIVE &nbsp; · &nbsp; SPACE TO BRAKE</span
+        ></span
+      ><span>© OpenStreetMap contributors · Copernicus DEM</span>
+    </footer>
+    <div id="touch">
+      <div class="touch-steering">
+        <button
+          type="button"
+          data-key="ArrowLeft"
+          aria-label="Steer left"
+          aria-pressed="false"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M12 20V4M5 11l7-7 7 7" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          data-key="ArrowRight"
+          aria-label="Steer right"
+          aria-pressed="false"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M12 20V4M5 11l7-7 7 7" />
+          </svg>
+        </button>
+      </div>
+      <div class="touch-pedals">
+        <button type="button" id="touch-handbrake" data-key=" " aria-label="Handbrake — hold to drift" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="7"/><path d="M5 3a12 12 0 0 0 0 18M19 3a12 12 0 0 1 0 18M10 8v8m4-8v8m-4-4h4"/></svg>
+        </button>
+        <button
+          type="button"
+          data-key="ArrowDown"
+          aria-label="Brake and reverse"
+          aria-pressed="false"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M12 20V4M5 11l7-7 7 7" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          data-key="ArrowUp"
+          aria-label="Accelerate"
+          aria-pressed="false"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M12 20V4M5 11l7-7 7 7" />
+          </svg>
+        </button>
+      </div>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

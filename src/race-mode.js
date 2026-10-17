@@ -1,0 +1,160 @@
+import * as THREE from 'three';
+import { ROUTES, buildRoute, crossedCheckpoint, ghostPose, formatTime } from './racing.js';
+import { makeVehicle, disposeVehicle } from './vehicles.js';
+export function createRaceMode({ scene, roads, starts, heightAt, begin, toast }) {
+  const select = document.getElementById('race-route');
+  const status = document.getElementById('race-status');
+  const countdown = document.getElementById('race-countdown');
+  function updateMetrics(r, state) {
+    const next = r.course.checkpoints[r.checkpoint];
+    document.getElementById('race-time').textContent = formatTime(r.elapsed);
+    document.getElementById('race-gates').textContent = `${r.checkpoint}/${r.course.checkpoints.length}`;
+    document.getElementById('race-next').textContent = next ? `${Math.round(Math.hypot(state.x - next.x, state.z - next.z))} m` : 'Done';
+    document.getElementById('race-best').textContent = formatTime(r.best?.time);
+  }
+  function showCountdown(text) {
+    if (countdown.textContent !== text) {
+      countdown.textContent = text;
+      countdown.classList?.remove('countdown-pop');
+      void countdown.offsetWidth;
+      countdown.classList?.add('countdown-pop');
+    }
+    countdown.hidden = false;
+  }
+  const startButton = document.getElementById('race-start');
+  const cancelButton = document.getElementById('race-cancel');
+  const courses = new Map();
+  for (const route of ROUTES) {
+    const option = new Option(route.name, route.id);
+    try { courses.set(route.id, { ...route, ...buildRoute(roads, starts[route.from], starts[route.to]) }); }
+    catch { option.disabled = true; option.textContent += ' (unavailable)'; }
+    select.add(option);
+  }
+  const first = courses.has('doonmore-days') ? 'doonmore-days' : [...courses.keys()][0];
+  if (first) select.value = first;
+  startButton.disabled = !first;
+  let race = null, ghost = null, marker = null, line = null;
+  const key = (route, vehicle) => `bofin-race-v1:${route}:${vehicle}`;
+  function readBest(route, vehicle) {
+    try {
+      const saved = JSON.parse(localStorage.getItem(key(route, vehicle)));
+      if (!saved || !Number.isFinite(saved.time) || saved.time <= 0 || saved.time > 1800 || !Array.isArray(saved.samples) || saved.samples.length > 19000 || saved.samples.length < 2) return null;
+      let previous = -1;
+      for (const p of saved.samples) {
+        if (![p.t, p.x, p.z, p.heading].every(Number.isFinite) || p.t < previous || p.t < 0 || Math.abs(p.x) > 20000 || Math.abs(p.z) > 20000) return null;
+        previous = p.t;
+      }
+      if (Math.abs(previous - saved.time) > 0.01) return null;
+      return saved;
+    } catch { return null; }
+  }
+  function cleanup() {
+    if (ghost) { scene.remove(ghost); disposeVehicle(ghost); ghost = null; }
+    for (const item of [marker, line]) if (item) {
+      scene.remove(item);
+      item.traverse(o => { o.geometry?.dispose(); if (o.material) o.material.dispose(); });
+    }
+    marker = line = null;
+  }
+  function cancel(message = 'Timed run cancelled') {
+    if (!race) return;
+    race = null; cleanup(); cancelButton.hidden = true; countdown.hidden = true;
+    status.textContent = message;
+    document.getElementById("race-panel").hidden = true;
+  }
+  function updateMarker() {
+    const p = race.course.checkpoints[race.checkpoint];
+    marker.position.set(p.x, heightAt(p.x, p.z) + 0.45, p.z);
+  }
+  startButton.onclick = () => {
+    cancel();
+    const course = courses.get(select.value);
+    if (!course) return;
+    const vehicle = begin(starts[course.from], course.path);
+    const best = readBest(course.id, vehicle);
+    race = { course, vehicle, best, countdown: 3, elapsed: 0, checkpoint: 0, samples: [], previous: null };
+    updateMetrics(race, starts[course.from]);
+    status.textContent = course.name;
+    showCountdown("3");
+    ghost = best ? makeVehicle(vehicle) : null;
+    if (ghost) {
+      ghost.traverse(o => {
+        if (o.material) { o.material.transparent = true; o.material.opacity = 0.28; o.material.depthWrite = false; }
+      });
+      ghost.visible = false; scene.add(ghost);
+    }
+    marker = new THREE.Group();
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(9, 0.24, 8, 48), new THREE.MeshBasicMaterial({ color: '#d5ff77', depthTest: true }));
+    ring.rotation.x = Math.PI / 2;
+    marker.add(ring);
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 9, 8), new THREE.MeshBasicMaterial({ color: '#d5ff77', transparent: true, opacity: 0.65 }));
+    beam.position.y = 4.5; marker.add(beam); scene.add(marker); updateMarker();
+    const points = [];
+    for (let i = 1; i < course.path.length; i++) {
+      const a = course.path[i - 1], b = course.path[i];
+      const steps = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.z - a.z) / 3));
+      for (let j = 0; j <= steps; j++) {
+        const x = a.x + (b.x - a.x) * j / steps, z = a.z + (b.z - a.z) * j / steps;
+        points.push(new THREE.Vector3(x, heightAt(x, z) + 0.3, z));
+      }
+    }
+    line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), new THREE.LineBasicMaterial({ color: '#d5ff77', transparent: true, opacity: 0.55 }));
+    scene.add(line); cancelButton.hidden = false;
+    document.getElementById('race-panel').hidden = false;
+    toast('Follow the green route through every checkpoint. Press B or tap Boost for extra speed.');
+  };
+  cancelButton.onclick = () => cancel();
+  return {
+    get active() { return !!race; },
+    get countingDown() { return !!race && race.countdown > 0; },
+    cancel,
+    tick(dt, state, heading, active) {
+      if (!race) return;
+      const r = race;
+      if (!active) { status.textContent = `Paused · ${formatTime(r.elapsed)}`; return; }
+      if (r.countdown > 0) {
+        status.textContent = r.course.name;
+        r.countdown = Math.max(0, r.countdown - dt);
+        showCountdown(r.countdown > 0 ? String(Math.ceil(r.countdown)) : "GO!");
+        r.previous = { ...state };
+        return;
+      }
+      r.elapsed += dt;
+      if (r.elapsed < 0.85) showCountdown("GO!");
+      else countdown.hidden = true;
+      if (r.elapsed > 1800) { cancel('Run ended · 30 minute limit'); return; }
+      if (!r.samples.length || r.elapsed - r.samples.at(-1).t >= 0.1) {
+        r.samples.push({ t: r.samples.length ? r.elapsed : 0, x: state.x, z: state.z, heading });
+      }
+      const pose = ghostPose(r.best?.samples, r.elapsed);
+      if (ghost) {
+        ghost.visible = !!pose;
+        if (pose) { ghost.position.set(pose.x, heightAt(pose.x, pose.z) + 0.22, pose.z); ghost.rotation.y = pose.heading; }
+      }
+      if (crossedCheckpoint(r.previous || state, state, r.course.checkpoints[r.checkpoint])) {
+        r.checkpoint++;
+        if (r.checkpoint === r.course.checkpoints.length) {
+          r.samples.push({ t: r.elapsed, x: state.x, z: state.z, heading });
+          updateMetrics(r, state);
+          const record = !r.best || r.elapsed < r.best.time;
+          let saved = true;
+          if (record) try { localStorage.setItem(key(r.course.id, r.vehicle), JSON.stringify({ time: r.elapsed, samples: r.samples })); } catch { saved = false; }
+          const result = `${record ? 'Personal best!' : 'Finished!'} ${formatTime(r.elapsed)}${r.best ? ` · Previous best ${formatTime(r.best.time)}` : ''}${!saved ? ' · Storage unavailable; record not saved' : ''}`;
+          cancel(result); toast(result); return;
+        }
+        updateMarker();
+      }
+      r.previous = { ...state };
+      const next = r.course.checkpoints[r.checkpoint];
+      updateMetrics(r, state);
+      status.textContent = r.course.name;
+    },
+    drawMap(ctx, pt) {
+      if (!race) return;
+      ctx.strokeStyle = '#d5ff77'; ctx.lineWidth = 2.5; ctx.beginPath();
+      race.course.path.forEach((p, i) => { const [x, y] = pt([p.x, p.z]); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.stroke();
+      const p = race.course.checkpoints[race.checkpoint], [x, y] = pt([p.x, p.z]);
+      ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill();
+    },
+  };
+}
