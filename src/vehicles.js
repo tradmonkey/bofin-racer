@@ -1,5 +1,7 @@
 import * as THREE from "three";
 export const VEHICLES = [
+  { id: "celica", name: "Steve's Celica" },
+  { id: "h50", name: "Paddy's H50" },
   { id: "kursk", name: "The Kursk" },
   { id: "jeep", name: "Dave's Jeep" },
   { id: "tractor", name: "MJ's Tractor" },
@@ -42,7 +44,80 @@ export function makeVehicle(type = "jeep") {
     hub.position.copy(o.position);
     g.add(hub);
   };
-  if (type === "tractor") {
+  const rod = (a,b,radius,material) => {
+    const from = new THREE.Vector3(...a), to = new THREE.Vector3(...b), delta = to.clone().sub(from);
+    const mesh = new THREE.Mesh(new THREE.CylinderGeometry(radius,radius,delta.length(),8),material);
+    mesh.position.copy(from.add(to).multiplyScalar(0.5));
+    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),delta.normalize()); g.add(mesh);
+  };
+  if (type === "celica") {
+    const paint = mat('#11171a'), white = mat('#e5e7df'), amber = mat('#ce7727'), rear = mat('#a51d25');
+    const light = mat('#fff3d0');
+    box(1.78,0.43,4.25,paint,0,0.68,0);
+    box(1.72,0.17,1.48,paint,0,0.96,1.2);
+    box(1.52,0.52,1.72,glass,0,1.24,-0.18);
+    box(1.46,0.09,1.33,paint,0,1.52,-0.32);
+    for(const side of [-1,1]) {
+      const pillar=box(0.09,0.62,0.12,paint,side*0.74,1.25,0.65); pillar.rotation.x=-0.48;
+      box(0.07,0.5,0.13,paint,side*0.76,1.22,-0.36);
+      box(0.07,0.42,0.27,paint,side*0.76,1.17,-1.02);
+      box(0.21,0.13,0.23,paint,side*0.93,1.17,0.51);
+      box(0.4,0.3,0.33,paint,side*0.57,1.15,1.66);
+      box(0.32,0.23,0.025,light,side*0.57,1.16,1.84);
+      box(0.3,0.09,0.04,amber,side*0.64,0.66,2.14);
+      box(0.58,0.16,0.04,rear,side*0.51,0.87,-2.14);
+      box(0.08,0.24,0.16,paint,side*0.64,1.04,-1.82);
+      for(const z of [-1.3,1.29]) {
+        wheel(side*0.87,z,0.36,0.23);
+        const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.28,0.28,0.025,24),white);
+        rim.rotation.z=Math.PI/2; rim.position.set(side*1.0,0.4,z); g.add(rim);
+        for(let i=0;i<12;i++) {
+          const angle=i*Math.PI/6;
+          const vent=box(0.03,0.075,0.035,black,side*1.017,0.4+Math.cos(angle)*0.205,z+Math.sin(angle)*0.205);
+          vent.rotation.x=-angle;
+        }
+      }
+    }
+    box(1.7,0.09,0.31,paint,0,1.18,-1.83);
+    box(1.0,0.13,0.06,black,0,0.58,2.15);
+    box(0.46,0.09,0.45,paint,0,1.09,1.02);
+    box(0.32,0.045,0.025,black,0,1.1,1.25);
+    g.userData.eyeHeight=1.38;
+  } else if (type === "h50") {
+    const red=mat('#b94d46'), cream=mat('#dedac3'), chrome=mat('#b8c3bf'), orange=mat('#ed9b24'), light=mat('#fff0c7');
+    for(const z of [-0.82,0.87]) {
+      wheel(0,z,0.34,0.12);
+      const rim=new THREE.Mesh(new THREE.TorusGeometry(0.285,0.018,6,24),chrome);
+      rim.rotation.y=Math.PI/2;rim.position.set(0,0.38,z);g.add(rim);
+      for(let i=0;i<16;i++) {
+        const angle=i*Math.PI/8;
+        rod([0,0.38,z],[0,0.38+Math.cos(angle)*0.28,z+Math.sin(angle)*0.28],0.006,chrome);
+      }
+      box(0.24,0.09,0.56,red,0,0.76,z);
+    }
+    box(0.25,0.36,0.77,red,0,0.73,-0.44);
+    box(0.35,0.1,0.65,black,0,1.01,-0.38);
+    box(0.3,0.27,0.16,cream,0,0.55,0.38);
+    const shield=box(0.46,0.68,0.1,cream,0,0.82,0.42);shield.rotation.x=-0.22;
+    rod([0,0.49,0.64],[0,1.38,0.72],0.085,red);
+    for(const side of [-1,1]) {
+      rod([side*0.09,0.39,0.87],[side*0.09,1.12,0.66],0.035,chrome);
+      rod([0,1.39,0.72],[side*0.42,1.39,0.72],0.025,chrome);
+      box(0.17,0.065,0.075,black,side*0.36,1.39,0.72);
+      rod([side*0.13,0.38,-0.82],[side*0.13,0.9,-0.61],0.035,chrome);
+      box(0.08,0.075,0.08,orange,side*0.25,1.39,0.82);
+      rod([side*0.18,0.93,-0.71],[side*0.18,0.93,-1.1],0.014,chrome);
+    }
+    for(const z of [-0.75,-0.87,-0.99,-1.1]) rod([-0.19,0.93,z],[0.19,0.93,z],0.012,chrome);
+    const headlight=new THREE.Mesh(new THREE.CylinderGeometry(0.13,0.13,0.11,20),chrome);
+    headlight.rotation.x=Math.PI/2;headlight.position.set(0,1.39,0.8);g.add(headlight);
+    const lens=new THREE.Mesh(new THREE.CircleGeometry(0.112,20),light);lens.position.set(0,1.39,0.86);g.add(lens);
+    box(0.15,0.09,0.06,mat('#ad2027'),0,0.79,-1.13);
+    box(0.3,0.2,0.35,metal,0,0.46,-0.04);
+    rod([0.16,0.28,0.22],[0.16,0.28,-0.96],0.045,chrome);
+    rod([-0.29,0.39,-0.13],[0.29,0.39,-0.13],0.035,black);
+    g.userData.eyeHeight=1.6;
+  } else if (type === "tractor") {
     const red = mat("#b8332c");
     box(1.2, 0.5, 3, red, 0, 0.9, 0);
     box(1.1, 0.8, 1.6, red, 0, 1.4, 0.75);
@@ -365,7 +440,7 @@ export function makeVehicle(type = "jeep") {
     emissive: "#ead49c",
     emissiveIntensity: 0.4,
   });
-  for (const x of type === "kursk" ? [] : [-0.6, 0.6])
+  for (const x of ["kursk", "celica", "h50"].includes(type) ? [] : [-0.6, 0.6])
     box(["jetta", "corolla"].includes(type) ? 0.37 : 0.23, 0.2, 0.08, lamp, x, ["jetta", "corolla"].includes(type) ? 0.96 : 1, ["jetta", "corolla"].includes(type) ? 2.05 : 1.77);
   g.userData.wheels = wheels;
   g.userData.vehicleType = type;
