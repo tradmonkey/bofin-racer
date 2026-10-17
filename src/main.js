@@ -1055,7 +1055,15 @@ $("close-guide").onclick = () => {
   $("guide").classList.add("hidden");
   paused = false;
 };
+const editingControl = (target) => target instanceof Element && (
+  target.matches("input, textarea, select") || target.isContentEditable ||
+  !!target.closest('[role="textbox"]')
+);
+document.addEventListener("focusin", (e) => {
+  if (editingControl(e.target)) { keys.clear(); clearTouchControls(); }
+});
 window.addEventListener("keydown", (e) => {
+  if (e.isComposing || editingControl(e.target) || editingControl(document.activeElement)) return;
   const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
   if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", " "].includes(k))
     e.preventDefault();
