@@ -25,3 +25,15 @@ test('moored ferries sit in water outside the pier and coastline', () => {
     assert.ok(bounds.max.z - bounds.min.z >= p.length - 0.1);
   }
 });
+
+test('New Pier seaward end is water beneath the independent pier deck',()=>{
+ const load=f=>JSON.parse(fs.readFileSync(new URL(`../public/data/${f}`,import.meta.url)));
+ const data=load('harbour.json'),coast=load('island.json').coastline.map(project);
+ const feature=data.features.find(f=>f.tags.mooring==='ferry');
+ const decks=harbourSurfaces(data,()=>2),pier=decks.find(d=>d.id===feature.id);
+ const tip=project([-10.212095,53.61275]);
+ assert.equal(inside(...tip,coast),false);
+ assert.equal(inside(...tip,pier.points),true);
+ const beyond=project([-10.212095,53.61265]);
+ assert.equal(inside(...beyond,coast),false);
+});

@@ -1,0 +1,20 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import * as THREE from 'three';
+import {createDrainRecovery} from '../src/drain-recovery.js';
+test('telehandler arrives, lifts the car, restores road pose and cleans up',()=>{
+ const scene=new THREE.Scene(),car=new THREE.Group();car.position.set(6,-2,0);scene.add(car);
+ let destination;const recovery=createDrainRecovery(scene,()=>1,p=>destination=p);
+ recovery.start(car,{x:0,z:0,heading:0});assert.equal(scene.children.length,3);
+ const machine=scene.children.find(o=>o.name==='Clossey drain rescue telehandler');
+ const view=recovery.cameraPose;
+ recovery.tick(.01,true);const arrival=machine.position.z;
+ recovery.tick(3.99,true);assert.ok(machine.position.z<arrival);assert.equal(car.position.y,-2);
+ assert.ok(view.position.distanceTo(machine.position)>10);
+ assert.ok(Math.abs(machine.rotation.y-Math.PI)<1e-6);
+ const y=car.position.y;
+ recovery.tick(20,false);assert.equal(car.position.y,y);assert.equal(destination,undefined);
+ recovery.tick(4,true);assert.ok(car.position.y>1.22);assert.ok(car.position.x<6);
+ recovery.tick(7,true);assert.deepEqual(destination,{x:0,z:0,heading:0});assert.equal(recovery.active,false);assert.equal(scene.children.length,1);
+ recovery.start(car,{x:0,z:0,heading:0});recovery.cancel();assert.equal(scene.children.length,1);
+});

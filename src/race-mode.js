@@ -6,12 +6,16 @@ export function createRaceMode({ scene, roads, starts, heightAt, begin, toast, s
   const select = document.getElementById('race-route');
   const status = document.getElementById('race-status');
   const countdown = document.getElementById('race-countdown');
+  function text(id, value) {
+    const element = document.getElementById(id);
+    if (element.textContent !== value) element.textContent = value;
+  }
   function updateMetrics(r, state) {
     const next = r.course.checkpoints[r.checkpoint];
-    document.getElementById('race-time').textContent = formatTime(r.elapsed);
-    document.getElementById('race-gates').textContent = `${r.checkpoint}/${r.course.checkpoints.length}`;
-    document.getElementById('race-next').textContent = next ? `${Math.round(Math.hypot(state.x - next.x, state.z - next.z))} m` : 'Done';
-    document.getElementById('race-best').textContent = formatTime(r.best?.time);
+    text('race-time', formatTime(r.elapsed));
+    text('race-gates', `${r.checkpoint}/${r.course.checkpoints.length}`);
+    text('race-next', next ? `${Math.round(Math.hypot(state.x - next.x, state.z - next.z))} m` : 'Done');
+    text('race-best', formatTime(r.best?.time));
   }
   function showCountdown(text) {
     if (countdown.textContent !== text) {
@@ -72,14 +76,14 @@ export function createRaceMode({ scene, roads, starts, heightAt, begin, toast, s
     cancel();
     const course = courses.get(select.value);
     if (!course) return;
-    const vehicle = begin(starts[course.from], course.path);
+    const vehicle = begin(starts[course.from], course.path, course);
     setCargo(course.cargo);
     const best = readBest(course.id, vehicle);
     race = { course, vehicle, best, identity: leaderboard?.identity(), countdown: 3, elapsed: 0, checkpoint: 0, samples: [], previous: null };
     updateMetrics(race, starts[course.from]);
     status.textContent = course.name;
     // Record the actual starting pose at t=0 for server-side movement checks.
-    race.samples.push({t:0,x:starts[course.from].x,z:starts[course.from].z,heading:Math.atan2(course.path[1].x-course.path[0].x,course.path[1].z-course.path[0].z)});
+    race.samples.push({t:0,x:starts[course.from].x,z:starts[course.from].z,heading:Math.atan2(course.path[1].x-course.path[0].x,course.path[1].z-course.path[0].z)+(course.reverse?Math.PI:0)});
     showCountdown("3");
     ghost = best ? makeVehicle(vehicle) : null;
     if (ghost) {
@@ -107,11 +111,12 @@ export function createRaceMode({ scene, roads, starts, heightAt, begin, toast, s
     line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), new THREE.LineBasicMaterial({ color: '#d5ff77', transparent: true, opacity: 0.55 }));
     scene.add(line); cancelButton.hidden = false;
     document.getElementById('race-panel').hidden = false;
-    toast((course.cargo === 'pallets' ? 'Deliver the pallets to the beach party! ' : '') + 'Follow the green route through every checkpoint. Press B or tap Boost for extra speed.');
+    toast((course.reverse ? 'Reverse all the way! Hold S / down to accelerate backwards; W / up brakes. ' : '') + (course.cargo === 'pallets' ? 'Deliver the pallets to the beach party! ' : '') + 'Follow the green route through every checkpoint. Press B or tap Boost for extra speed.');
   };
   cancelButton.onclick = () => cancel();
   return {
     get active() { return !!race; },
+    get reverse() { return !!race?.course.reverse; },
     get countingDown() { return !!race && race.countdown > 0; },
     cancel,
     tick(dt, state, heading, active) {
@@ -119,7 +124,7 @@ export function createRaceMode({ scene, roads, starts, heightAt, begin, toast, s
       const r = race;
       if (!active) { status.textContent = `Paused · ${formatTime(r.elapsed)}`; return; }
       if (r.countdown > 0) {
-        status.textContent = r.course.name;
+        text('race-status', r.course.name);
         r.countdown = Math.max(0, r.countdown - dt);
         showCountdown(r.countdown > 0 ? String(Math.ceil(r.countdown)) : "GO!");
         r.previous = { ...state };
@@ -156,7 +161,7 @@ export function createRaceMode({ scene, roads, starts, heightAt, begin, toast, s
       r.previous = { ...state };
       const next = r.course.checkpoints[r.checkpoint];
       updateMetrics(r, state);
-      status.textContent = r.course.name;
+      text('race-status', r.course.name);
     },
     drawMap(ctx, pt) {
       if (!race) return;

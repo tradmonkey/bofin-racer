@@ -32,8 +32,11 @@
       <section id="intro" class="panel">
         <div id="mode-choice">
           <div class="mode-eyebrow">BOFIN RACER</div>
+          <label class="quality-option"><input id="edge-smoothing" type="checkbox" /> Extra edge smoothing</label>
+          <label class="quality-option"><input id="render-quality" type="checkbox" /> Lower resolution for smoother performance</label>
           <h1>Choose your drive</h1>
           <div class="mode-options">
+            <button type="button" id="board-boat" hidden><strong>Harbour boat <span>→</span></strong><small>Take the ferry for a spin around the harbour.</small></button>
             <button type="button" id="choose-timed"><strong>Time Trial <span>→</span></strong><small>Race the clock. Beat your best.</small></button>
             <button type="button" id="choose-free"><strong>Free drive <span>→</span></strong><small>Pick a spot and explore the island.</small></button>
           </div>
@@ -187,6 +190,7 @@
       <button id="locations-menu">M <span>Restart</span></button>
       <button id="boost" aria-pressed="false">B <span>Boost off</span></button>
 
+      <button id="leave-boat" hidden>Return to car</button>
       <button id="reset">R <span>Back to road</span></button>
     </section>
     <footer>

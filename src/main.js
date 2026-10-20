@@ -1,3 +1,14 @@
+import { createDrainRecovery } from "./drain-recovery.js";
+import { surfaceDetail, smoothTerrainNormals } from "./surface-detail.js";
+import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
+import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+import { FXAAShader } from "three/addons/shaders/FXAAShader.js";
+import { harbourWaterMaterial, addHarbourShoreRocks } from "./harbour-look.js";
+import { boatStep, boatCanMove, boardingBoat } from "./boat-driving.js";
+import { spatialIndex, roadBounds } from "./spatial-index.js";
+import { terrainChunks, batchStaticScene } from "./static-scene.js";
 import { createLeaderboard } from "./leaderboard.js";
 import { createAirstrip, addAirstrip } from "./airstrip.js";
 import { WATER_RANGE, waterRangeStep } from "./water-driving.js";
@@ -16,7 +27,6 @@ import {
   VEHICLES,
   makeVehicle,
   disposeVehicle,
-  vehiclePreviews,
 } from "./vehicles.js";
 import { challengeDrain, drainDepth } from "./drains.js";
 import { smoothRoad, junctionKeys } from "./roads.js";
@@ -27,9 +37,23 @@ import { buildingProfile } from "./buildings.js";
 import { makeRoof, roadProfile } from "./architecture.js";
 import { harbourSurfaces, onDeck, addHarbour } from "./harbour.js";
 import { project, inside, nearestRoad, landTerrainSampler } from "./geo.js";
+let edgeSmoothing = false, composer = null, fxaa = null;
+let lowResolution = false;
+try { lowResolution = localStorage.getItem("bofin-low-resolution") === "true"; } catch {}
 const $ = (id) => document.getElementById(id),
   keys = new Set(),
   touchKeys = new Set();
+let nearbyRoads, nearbyObstacles, harbourBoat = null;
+let drainRecovery = null;
+let boatMode = null;
+const harbourBoats = [];
+function nearbyBoardingBoat() {
+  return boardingBoat(harbourBoats, state, speed, ready && running && !paused && !boatMode && !raceMode?.active && $("intro").classList.contains("hidden") && !!onDeck(state.x,state.z,decks));
+}
+function displayText(id, text) {
+  const element = $(id);
+  if (element.textContent !== text) element.textContent = text;
+}
 const pressed = (key) => keys.has(key) || touchKeys.has(key);
 let scene,
   camera,
@@ -74,7 +98,8 @@ function toast(s) {
   toastTimer = setTimeout(() => ($("toast").style.opacity = 0), 2800);
 }
 function material(color, extra = {}) {
-  return new THREE.MeshStandardMaterial({ color, roughness: 1, ...extra });
+  const result = new THREE.MeshStandardMaterial({ color, roughness: 1, ...extra });
+  return result;
 }
 function box(w, h, d, mat, x = 0, y = 0, z = 0) {
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
@@ -136,12 +161,12 @@ function roadMesh(points, width, color, lift) {
   scene.add(
     new THREE.Mesh(
       geo,
-      material(color, {
+      surfaceDetail(material(color, {
         side: THREE.DoubleSide,
         polygonOffset: true,
         polygonOffsetFactor: -1,
         polygonOffsetUnits: -1,
-      }),
+      }), .8, .25),
     ),
   );
 }
@@ -212,21 +237,19 @@ function terrain(grid) {
         const k = j * (nx + 1) + i;
         const stepX = (se[0] - nw[0]) / nx,
           stepZ = (se[1] - nw[1]) / nz;
-        if (
-          x + stepX >= drain.bounds[0] &&
-          x <= drain.bounds[2] &&
-          z + stepZ >= drain.bounds[1] &&
-          z <= drain.bounds[3]
-        ) {
-          // Refine only the drain area so narrow trenches are genuine ground cuts.
-          const subdivisions = 28,
+        const inDrainPatch = x + stepX >= drain.bounds[0] && x <= drain.bounds[2] && z + stepZ >= drain.bounds[1] && z <= drain.bounds[3];
+        const shorePatch = x > -950 && x < 800 && z > 500 && z < 1500 &&
+          [inside(x+stepX,z,coast),inside(x,z+stepZ,coast),inside(x+stepX,z+stepZ,coast)].some(value=>value!==land);
+        if (inDrainPatch || shorePatch) {
+          // Detail only the harbour shoreline and existing drain area.
+          const subdivisions = inDrainPatch ? 28 : 4,
             offset = patchV.length / 3;
           for (let row = 0; row <= subdivisions; row++)
             for (let col = 0; col <= subdivisions; col++) {
               const px = x + (stepX * col) / subdivisions,
                 pz = z + (stepZ * row) / subdivisions,
                 depth = drainDepth(px, pz, drain);
-              patchV.push(px, heightAt(px, pz), pz);
+              patchV.push(px, inside(px,pz,coast) ? heightAt(px,pz) : -4, pz);
               const shade = new THREE.Color(
                 depth > 0.1 ? "#62634c" : "#819665",
               );
@@ -252,10 +275,11 @@ function terrain(grid) {
   geo.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
   geo.setIndex(indices);
   geo.computeVertexNormals();
-  scene.add(new THREE.Mesh(geo, material("#ffffff", { vertexColors: true })));
+  smoothTerrainNormals(geo);
+  scene.add(terrainChunks(geo, surfaceDetail(material("#ffffff", { vertexColors: true }),.12,.35)));
   const sea = new THREE.Mesh(
     new THREE.PlaneGeometry(50000, 50000),
-    material("#538d96", { roughness: 0.35, metalness: 0.15 }),
+    harbourWaterMaterial(coast),
   );
   sea.rotation.x = -Math.PI / 2;
   sea.position.y = 0.15;
@@ -448,11 +472,13 @@ function scenery(data) {
   scene.add(rocks);
 }
 function reset() {
+  drainRecovery?.cancel();
+  if (boatMode) leaveBoat();
   airstrip?.reset();
   waterRange = WATER_RANGE;
   raceMode?.cancel("Run cancelled · reset to road");
   inDrain = false;
-  if (!ready) return;
+  if (!ready || document.hidden) return;
   let p = running
     ? nearestRoad(
         state.x,
@@ -483,6 +509,7 @@ function reset() {
   toast("Back on the road. Take your time.");
 }
 function updateCar(dt) {
+  if (boatMode) { car.position.set(state.x, 0.15, state.z); car.rotation.set(0, heading, 0); return; }
   if (!dt) { slip = 0; steering = 0; turnRate = 0; acceleration = 0; car.rotation.z = 0; }
   const afloat = selectedVehicle === "kursk" && isWater(state.x, state.z);
   car.position.set(state.x, afloat ? 0.15 : heightAt(state.x, state.z) + 0.22, state.z);
@@ -505,12 +532,25 @@ function updateCar(dt) {
     w.rotation.x += (speed * dt) / (w.userData.radius || 0.34);
 }
 function drive(dt) {
+  if (boatMode) {
+    const next=boatStep(speed,steering,{accel:pressed('w')||pressed('ArrowUp'),brake:pressed('s')||pressed('ArrowDown'),turn:(pressed('a')||pressed('ArrowLeft')?1:0)-(pressed('d')||pressed('ArrowRight')?1:0)},dt,car.userData.handling);
+    const angle=heading+next.yaw*dt;
+    const x=state.x+Math.sin(angle)*next.speed*dt,z=state.z+Math.cos(angle)*next.speed*dt;
+    const steps=Math.max(1,Math.ceil(Math.abs(next.speed)*dt/.5));
+    let clear=true;
+    for(let i=1;i<=steps;i++)if(!boatCanMove(state.x+(x-state.x)*i/steps,state.z+(z-state.z)*i/steps,heading+(angle-heading)*i/steps,coast,decks,boatMode.origin,boatMode.otherBoats,car.userData.hull)){clear=false;break;}
+    if(clear) {state.x=x;state.z=z;heading=angle;speed=next.speed;}
+    else {speed=0;toast('Shallow water or harbour edge — reverse and turn away.');}
+    steering=next.steering;distance+=Math.abs(speed)*dt;updateCar(dt);return;
+  }
   if (inDrain) return;
   const accel = pressed("w") || pressed("ArrowUp"),
     brake = pressed("s") || pressed("ArrowDown"),
     left = pressed("a") || pressed("ArrowLeft"),
     right = pressed("d") || pressed("ArrowRight");
-  roadInfo = nearestRoad(state.x, state.z, roads);
+  const localRoads = nearbyRoads(state.x, state.z, 80);
+  roadInfo = nearestRoad(state.x, state.z, localRoads);
+  if (roadInfo.distance > 80) roadInfo = nearestRoad(state.x, state.z, roads);
   const inAirstrip = airstrip.unlocked && airstrip.arena(state.x, state.z);
   const onRoad = inAirstrip || roadInfo.distance < roadInfo.width / 2 + 1;
   const inWater = isWater(state.x, state.z);
@@ -522,7 +562,7 @@ function drive(dt) {
   } : HANDLING[selectedVehicle];
   const next = drivingStep(speed, steering, {
     accel, brake, turn: (left ? 1 : 0) - (right ? 1 : 0),
-    handbrake: pressed(" "), onRoad, boost, slip,
+    handbrake: pressed(" "), onRoad, boost, slip, reverseTrial: !!raceMode?.reverse,
   }, profile, dt);
   speed = inWater ? THREE.MathUtils.clamp(next.speed, -3, 6) : next.speed;
   slip = next.slip;
@@ -538,7 +578,7 @@ function drive(dt) {
   const surfaceY = (px, pz) => waterAllowed && isWater(px, pz) ? 0.15 : heightAt(px, pz);
   const blocked =
     (enteringWater && !waterAllowed) ||
-    obstacles.some(
+    nearbyObstacles(x, z).some(
       (o) =>
         Math.abs(x - o.x) < o.w &&
         Math.abs(z - o.z) < o.d &&
@@ -578,11 +618,19 @@ function drive(dt) {
     raceMode?.cancel("Run ended · car in drain");
     speed = 0;
     keys.clear();
-    toast("In the drain! Press R to return to the road.");
+    const road = nearestRoad(state.x,state.z,roads.filter(r=>r.id==='215535456'));
+    drainRecovery.start(car,road);
+    clearTouchControls();
+    toast("In the drain! Teleporter on the way — sit tight.");
   }
 }
+let mapBackground, mapProject;
 function map() {
-  const ctx = $("map").getContext("2d"),
+  if ($("map-panel").hidden) return;
+  if (!mapBackground) {
+  mapBackground = document.createElement("canvas");
+  mapBackground.width = 320; mapBackground.height = 220;
+  const ctx = mapBackground.getContext("2d"),
     w = 320,
     h = 220,
     xs = coast.map((p) => p[0]),
@@ -627,6 +675,11 @@ function map() {
     ctx.fillStyle = "#b6d4d0";
     ctx.fillRect(lx - 1.5, ly - 1.5, 3, 3);
   }
+  mapProject = pt;
+  }
+  const ctx = $("map").getContext("2d"), pt = mapProject;
+  ctx.clearRect(0, 0, 320, 220);
+  ctx.drawImage(mapBackground, 0, 0);
   raceMode?.drawMap(ctx, pt);
   const [x, y] = pt([state.x, state.z]);
   ctx.save();
@@ -643,6 +696,8 @@ function map() {
   ctx.fill();
   ctx.restore();
 }
+let hudElapsed = 0;
+const cameraBehind = new THREE.Vector3(), cameraTarget = new THREE.Vector3();
 function animate() {
   requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 0.04);
@@ -653,8 +708,9 @@ function animate() {
   raceMode?.tick(dt, state, heading, running && !paused && !scoresOpen && !document.hidden);
   engineAudio.update(running && !paused && !document.hidden && !inDrain, speed,
     pressed("w") || pressed("ArrowUp"), HANDLING[selectedVehicle]);
-  const behind = new THREE.Vector3(-Math.sin(heading), 0, -Math.cos(heading)),
-    target = new THREE.Vector3();
+  drainRecovery?.tick(dt, running && !paused && !scoresOpen && !document.hidden);
+  const behind = cameraBehind.set(-Math.sin(heading), 0, -Math.cos(heading)),
+    target = cameraTarget.set(0, 0, 0);
   if (!running) {
     target
       .copy(car.position)
@@ -662,18 +718,22 @@ function animate() {
       .add(new THREE.Vector3(-45, 65, 0));
     camera.position.lerp(target, 1 - Math.exp(-dt * 2));
     camera.lookAt(car.position.clone().add(new THREE.Vector3(0, 4, 0)));
-  } else if (view === 0) {
+  } else if (drainRecovery?.active) {
+    const shot=drainRecovery.cameraPose;
+    camera.position.copy(shot.position);
+    camera.lookAt(shot.target);
+  } else if (view === 0 || raceMode?.reverse) {
     target
       .copy(car.position)
-      .addScaledVector(behind, 8 + Math.abs(speed) * 0.13);
-    target.y += 4.1;
+      .addScaledVector(behind, ((boatMode ? 27 : 8) + Math.abs(speed) * 0.13) * (raceMode?.reverse ? -1 : 1));
+    target.y += boatMode ? 13 : 4.1;
     target.y = Math.max(target.y, heightAt(target.x, target.z) + 2.5);
     camera.position.lerp(target, 1 - Math.exp(-dt * 5));
     camera.lookAt(
       car.position
         .clone()
         .add(
-          new THREE.Vector3(Math.sin(heading) * 8, 1.3, Math.cos(heading) * 8),
+          new THREE.Vector3(Math.sin(heading) * (raceMode?.reverse ? -8 : 8), 1.3, Math.cos(heading) * (raceMode?.reverse ? -8 : 8)),
         ),
     );
   } else {
@@ -699,23 +759,31 @@ function animate() {
         ),
     );
   }
-  $("water-range").hidden = selectedVehicle !== "kursk" || !running;
+  hudElapsed += dt;
+  if (hudElapsed >= 0.1) {
+  hudElapsed = 0;
+  $("board-boat").hidden = !nearbyBoardingBoat();
+  $("water-range").hidden = selectedVehicle !== "kursk" || !running || !!boatMode;
   $("water-range").textContent = `Water range: ${Math.ceil(waterRange)} m${isWater(state.x, state.z) ? " · Head for shore" : waterRange < WATER_RANGE ? " · Recharging" : " · Ready"}`;
-  const playground = running && airstrip.unlocked && airstrip.arena(state.x, state.z);
-  $("airstrip-status").hidden = !playground;
-  $("airstrip-status").textContent = airstrip.turbo ? "SUPER SPEED · " + Math.round(Math.abs(speed) * 3.6) + " km/h" : "AIRSTRIP · Hit the glowing pads · Handbrake to drift";
-  const fov = ease(camera.fov, playground && airstrip.turbo ? 76 : 60, 4, dt);
-  if (Math.abs(camera.fov - fov) > 0.01) { camera.fov = fov; camera.updateProjectionMatrix(); }
-  car.visible = !running || view === 0;
   $("speed").textContent = String(Math.round(Math.abs(speed) * 3.6)).padStart(
     2,
     "0",
   );
   $("gear").textContent = speed < -0.1 ? "R" : speed > 0.1 ? "D" : "N";
-  $("distance").innerHTML = `${(distance / 1000).toFixed(2)} <small>km</small>`;
-  $("road-name").textContent = roadInfo?.name || "Harbour lanes";
+  const distanceText = (distance / 1000).toFixed(2);
+  if ($("distance").firstChild.nodeValue !== distanceText + " ")
+    $("distance").firstChild.nodeValue = distanceText + " ";
+  displayText("road-name", boatMode ? "Harbour ferry · R to return to car" : roadInfo?.name || "Harbour lanes");
   map();
-  renderer.render(scene, camera);
+  }
+  const playground = running && airstrip.unlocked && airstrip.arena(state.x, state.z);
+  $("airstrip-status").hidden = !playground;
+  if (playground) displayText("airstrip-status", airstrip.turbo ? "SUPER SPEED · " + Math.round(Math.abs(speed) * 3.6) + " km/h" : "AIRSTRIP · Hit the glowing pads · Handbrake to drift");
+  const fov = ease(camera.fov, playground && airstrip.turbo ? 76 : 60, 4, dt);
+  if (Math.abs(camera.fov - fov) > 0.01) { camera.fov = fov; camera.updateProjectionMatrix(); }
+  car.visible = !!drainRecovery?.active || !!raceMode?.reverse || !running || view === 0;
+  if (edgeSmoothing) { ensureEdgeSmoothing(); composer.render(); }
+  else renderer.render(scene, camera);
 }
 const clock = new THREE.Clock();
 async function init() {
@@ -747,7 +815,7 @@ async function init() {
       24000,
     );
     renderer = new THREE.WebGLRenderer({ canvas: $("world"), antialias: true });
-    renderer.setPixelRatio(Math.min(devicePixelRatio, 1.8));
+    renderer.setPixelRatio(Math.min(devicePixelRatio, lowResolution ? 1 : 1.8));
     renderer.setSize(innerWidth, innerHeight);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -797,7 +865,7 @@ async function init() {
           kind: p.highway,
           name: p.name || "Island lane",
         });
-      const pts = line;
+      const pts = smoothRoad(feature.geometry.coordinates.map(project), junctions, 1);
       roadMesh(pts, width + 1.2, "#9eab8b", 0.1);
       roadMesh(pts, width, road.color, 0.24);
     }
@@ -811,13 +879,22 @@ async function init() {
     scenery(island);
     addHarbour(scene, harbour, heightAt, decks, obstacles);
     addCraftHut(scene, roads, heightAt, obstacles);
+    addHarbourShoreRocks(scene, coast, roads, decks, heightAt);
+    nearbyRoads = spatialIndex(roads, roadBounds);
+    nearbyObstacles = spatialIndex(obstacles, o => [o.x-o.w,o.z-o.d,o.x+o.w,o.z+o.d]);
+    scene.traverse(object => { if (object.userData.driveableBoat) harbourBoats.push(object); });
+    batchStaticScene(scene);
     car = makeVehicle(selectedVehicle);
-    const thumbnails = vehiclePreviews();
     for (const vehicle of VEHICLES)
       document.querySelector(`[data-vehicle="${vehicle.id}"] img`).src =
-        thumbnails[vehicle.id];
+        `${import.meta.env.BASE_URL}vehicles/${vehicle.id}.png`;
     updateVehiclePreview(selectedVehicle);
     scene.add(car);
+    drainRecovery = createDrainRecovery(scene,heightAt,destination=>{
+      state.x=destination.x;state.z=destination.z;heading=destination.heading;
+      speed=0;inDrain=false;keys.clear();clearTouchControls();updateCar(0);
+      toast("Back on the road. Mind the drain this time!");
+    });
     startPoints = Object.fromEntries(
       [...START_LOCATIONS, ...RACE_LOCATIONS].map((location) => [
         location.id,
@@ -829,13 +906,14 @@ async function init() {
       leaderboard,
       setCargo: cargo => setPalletCargo(car, cargo === "pallets"),
       scene, roads, starts: startPoints, heightAt, toast,
-      begin(startPoint, path) {
+      begin(startPoint, path, course) {
         running = false;
         returnDrive = null;
         spawn = startPoint;
         reset();
         const ahead = path.find(p => Math.hypot(p.x - state.x, p.z - state.z) > 5);
         if (ahead) heading = Math.atan2(ahead.x - state.x, ahead.z - state.z);
+        if (course.reverse) heading += Math.PI;
         updateCar(0);
         keys.clear(); clearTouchControls();
         running = true; paused = false;
@@ -879,6 +957,8 @@ async function init() {
   }
 }
 function harbourStart() {
+  drainRecovery?.cancel();
+  if (boatMode) leaveBoat();
   waterRange = WATER_RANGE;
   raceMode?.cancel("Run cancelled · returned to start");
   inDrain = false;
@@ -938,6 +1018,8 @@ function updateVehiclePreview(type) {
   $("selected-vehicle-name").textContent = vehicle.name;
 }
 function chooseVehicle(type) {
+  if (drainRecovery?.active) reset();
+  if (boatMode) leaveBoat();
   updateVehiclePreview(type);
   selectedVehicle = type;
   for (const button of document.querySelectorAll("[data-vehicle]"))
@@ -971,6 +1053,8 @@ $("choose-timed").onclick = () => chooseMode("timed");
 $("choose-free").onclick = () => chooseMode("free");
 $("mode-back").onclick = showModeChoice;
 function openLocations() {
+  if (drainRecovery?.active) reset();
+  if (boatMode) leaveBoat();
   raceMode?.cancel("Run cancelled · opened locations");
   if (!ready) return;
   if (returnDrive && !running) {
@@ -1073,6 +1157,7 @@ window.addEventListener("keydown", (e) => {
     e.preventDefault();
   keys.add(k);
   if (e.repeat) return;
+  if (k === "e" && nearbyBoardingBoat()) $("board-boat").click();
   if (k === "m") openLocations();
   if (k === "b") toggleBoost();
   if (k === "r" && running) reset();
@@ -1125,7 +1210,58 @@ window.addEventListener("resize", () => {
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
+  resizeEdgeSmoothing();
 });
+
+$("render-quality").checked = lowResolution;
+$("render-quality").onchange = () => {
+  lowResolution = $("render-quality").checked;
+  try { localStorage.setItem("bofin-low-resolution", String(lowResolution)); } catch {}
+  if (renderer) { renderer.setPixelRatio(Math.min(devicePixelRatio, lowResolution ? 1 : 1.8)); renderer.setSize(innerWidth, innerHeight); resizeEdgeSmoothing(); }
+};
+function leaveBoat() {
+  if(!boatMode)return;
+  const saved=boatMode;
+  harbourBoat.position.copy(saved.mooring);harbourBoat.rotation.y=saved.mooringHeading;harbourBoat.visible=true;
+  car=saved.car;car.visible=true;Object.assign(state,saved.state);heading=saved.heading;
+  boatMode=null;speed=0;steering=0;keys.clear();clearTouchControls();updateCar(0);
+  $("leave-boat").hidden=true;
+  toast('Back in your car.');
+}
+$("leave-boat").onclick=leaveBoat;
+document.body.append($("board-boat"));
+$("board-boat").textContent = 'Fancy a spin? Jump aboard → (E)';
+$("board-boat").onclick=()=>{
+  const nearby = nearbyBoardingBoat();
+  if(!nearby)return;
+  harbourBoat = nearby;
+  raceMode?.cancel('Time trial ended · boarded ferry');
+  returnDrive=null;
+  if(!boatMode) {
+    const otherBoats=[];
+    scene.traverse(object=>{if(object!==harbourBoat&&(object.userData.driveableBoat||object.name==='Old Pier red cargo ferry'))otherBoats.push({x:object.position.x,z:object.position.z,radius:5});});
+    boatMode={car,state:{...state},heading,origin:{x:harbourBoat.position.x,z:harbourBoat.position.z},mooring:harbourBoat.position.clone(),mooringHeading:harbourBoat.rotation.y,otherBoats};
+    car.visible=false;car=harbourBoat;
+    state.x=car.position.x;state.z=car.position.z;heading=car.rotation.y;
+  }
+  speed=0;steering=0;running=true;paused=false;view=0;keys.clear();clearTouchControls();
+  $("intro").classList.add('hidden');$("guide").classList.add('hidden');document.body.classList.add('driving');
+  $("board-boat").hidden=true;
+  $("leave-boat").hidden=false;updateCar(0);
+  camera.position.copy(car.position).add(new THREE.Vector3(-Math.sin(heading)*30,14,-Math.cos(heading)*30));
+  toast('Harbour ferry · arrows or WASD to steer · down to reverse · Return to car when finished.');
+};
+function resizeEdgeSmoothing() {
+  if(!composer)return;
+  composer.setPixelRatio(renderer.getPixelRatio());composer.setSize(innerWidth,innerHeight);
+  fxaa.material.uniforms.resolution.value.set(1/(innerWidth*renderer.getPixelRatio()),1/(innerHeight*renderer.getPixelRatio()));
+}
+function ensureEdgeSmoothing() {
+  if(composer)return;
+  composer=new EffectComposer(renderer);composer.addPass(new RenderPass(scene,camera));
+  composer.addPass(new OutputPass());fxaa=new ShaderPass(FXAAShader);composer.addPass(fxaa);resizeEdgeSmoothing();
+}
+$("edge-smoothing").onchange=()=>{edgeSmoothing=$("edge-smoothing").checked;};
 init();
 
 $("map-toggle").onclick = () => {

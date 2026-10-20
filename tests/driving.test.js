@@ -51,3 +51,17 @@ test('Corolla rear tyres slide in normal corners and recover more slowly', () =>
   const planted = drivingStep(20, 0, release, HANDLING.jetta, 0.04);
   assert.ok(Math.abs(loose.slip) > Math.abs(planted.slip));
 });
+
+test('reverse trial matches forward speed and keeps normal reverse capped',()=>{
+ for(const profile of Object.values(HANDLING)) {
+  let forward={speed:0,steering:0},reverse={speed:0,steering:0},normal={speed:0,steering:0};
+  for(let i=0;i<1200;i++) {
+   forward=drivingStep(forward.speed,0,{...input,turn:0},profile,1/60);
+   reverse=drivingStep(reverse.speed,0,{...input,accel:false,brake:true,turn:0,reverseTrial:true},profile,1/60);
+   normal=drivingStep(normal.speed,0,{...input,accel:false,brake:true,turn:0},profile,1/60);
+  }
+  assert.ok(Math.abs(forward.speed+reverse.speed)<1e-8);
+  assert.ok(reverse.speed< -5);assert.ok(normal.speed>= -5);
+  assert.ok(drivingStep(reverse.speed,0,{...input,accel:true,brake:false,reverseTrial:true},profile,1/60).speed>reverse.speed);
+ }
+});

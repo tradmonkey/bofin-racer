@@ -13,6 +13,10 @@ export const HANDLING = {
 };
 export const ease = (value, target, rate, dt) => target + (value - target) * Math.exp(-rate * dt);
 export function drivingStep(speed, steering, input, profile, dt) {
+  if (input.reverseTrial) {
+    const next = drivingStep(-speed, steering, {...input, slip:-(input.slip||0), reverseTrial:false, accel:input.brake, brake:input.accel}, profile, dt);
+    return {...next, speed:-Math.max(0,next.speed), yaw:-next.yaw, slip:-next.slip};
+  }
   const { accel, brake, turn, handbrake, onRoad, boost } = input;
   steering = ease(steering, turn, profile.response, dt);
   const previousSpeed = speed;
