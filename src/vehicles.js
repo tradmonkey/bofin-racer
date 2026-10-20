@@ -1,5 +1,6 @@
 import * as THREE from "three";
 export const VEHICLES = [
+  { id: "cosworth", name: "Oisin's Cosworth" },
   { id: "celica", name: "Steve's Celica" },
   { id: "h50", name: "Paddy's H50" },
   { id: "kursk", name: "The Kursk" },
@@ -50,7 +51,52 @@ export function makeVehicle(type = "jeep") {
     mesh.position.copy(from.add(to).multiplyScalar(0.5));
     mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),delta.normalize()); g.add(mesh);
   };
-  if (type === "celica") {
+  if (type === "cosworth") {
+    const silver = mat('#adb4b8'), trim = mat('#252b30'), alloy = mat('#c7cdcf');
+    const headlamp = mat('#e5e8db'), amber = mat('#c89243'), tail = mat('#a52d32');
+    silver.metalness = 0.45; silver.roughness = 0.38;
+    box(1.8,0.48,4.35,silver,0,0.73,0);
+    box(1.74,0.14,1.48,silver,0,1.03,1.24);
+    box(1.54,0.58,1.94,glass,0,1.36,-0.19);
+    box(1.46,0.09,1.46,silver,0,1.68,-0.24);
+    box(1.73,0.13,0.74,silver,0,1.05,-1.77);
+    box(1.8,0.22,0.23,silver,0,0.57,2.12);
+    box(1.72,0.07,0.05,trim,0,0.77,2.25);
+    box(0.66,0.15,0.04,trim,0,0.94,2.19);
+    box(0.17,0.055,0.025,mat('#314d74'),0,0.94,2.218);
+    box(0.56,0.16,0.035,trim,0,0.56,2.25);
+    box(1.18,0.06,0.04,trim,0,0.44,2.23);
+    for(const side of [-1,1]) {
+      const front=box(0.085,0.73,0.12,silver,side*0.75,1.36,0.75);front.rotation.x=-0.47;
+      const back=box(0.11,0.68,0.15,silver,side*0.75,1.34,-1.12);back.rotation.x=0.4;
+      box(0.07,0.59,0.12,trim,side*0.78,1.35,-0.27);
+      box(0.025,0.41,0.018,trim,side*0.906,0.9,-0.23);
+      for(const z of [0.22,-0.85]) box(0.045,0.065,0.16,trim,side*0.92,1.08,z);
+      box(0.21,0.14,0.28,silver,side*0.94,1.3,0.62);
+      box(0.055,0.06,3.68,trim,side*0.91,0.76,0);
+      box(0.08,0.12,2.5,silver,side*0.91,0.46,0);
+      box(0.5,0.22,0.045,headlamp,side*0.57,0.96,2.19);
+      box(0.14,0.19,0.045,amber,side*0.83,0.96,2.19);
+      box(0.27,0.1,0.035,headlamp,side*0.62,0.57,2.25);
+      box(0.64,0.18,0.04,tail,side*0.48,0.96,-2.19);
+      for(let i=0;i<6;i++) box(0.24,0.012,0.025,trim,side*0.51,1.106,0.91+i*0.055);
+      box(0.09,0.18,0.18,silver,side*0.65,1.2,-1.9);
+      for(const z of [-1.32,1.31]) {
+        wheel(side*0.87,z,0.36,0.23);
+        const rim=new THREE.Mesh(new THREE.CylinderGeometry(0.285,0.285,0.025,24),trim);
+        rim.rotation.z=Math.PI/2;rim.position.set(side*1.0,0.4,z);g.add(rim);
+        for(let i=0;i<5;i++) {
+          const angle=i*Math.PI*2/5;
+          const spoke=box(0.035,0.24,0.075,alloy,side*1.017,0.4+Math.cos(angle)*0.135,z+Math.sin(angle)*0.135);
+          spoke.rotation.x=angle;
+        }
+        const lip=new THREE.Mesh(new THREE.TorusGeometry(0.275,0.018,6,24),alloy);
+        lip.rotation.y=Math.PI/2;lip.position.set(side*1.02,0.4,z);g.add(lip);
+      }
+    }
+    box(1.72,0.075,0.29,silver,0,1.32,-1.94);
+    g.userData.eyeHeight=1.5;
+  } else if (type === "celica") {
     const paint = mat('#11171a'), white = mat('#e5e7df'), amber = mat('#ce7727'), rear = mat('#a51d25');
     const light = mat('#fff3d0');
     box(1.78,0.43,4.25,paint,0,0.68,0);
@@ -440,7 +486,7 @@ export function makeVehicle(type = "jeep") {
     emissive: "#ead49c",
     emissiveIntensity: 0.4,
   });
-  for (const x of ["kursk", "celica", "h50"].includes(type) ? [] : [-0.6, 0.6])
+  for (const x of ["kursk", "celica", "h50", "cosworth"].includes(type) ? [] : [-0.6, 0.6])
     box(["jetta", "corolla"].includes(type) ? 0.37 : 0.23, 0.2, 0.08, lamp, x, ["jetta", "corolla"].includes(type) ? 0.96 : 1, ["jetta", "corolla"].includes(type) ? 2.05 : 1.77);
   g.userData.wheels = wheels;
   g.userData.vehicleType = type;

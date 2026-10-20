@@ -1,4 +1,5 @@
 export const HANDLING = {
+  cosworth: { acceleration: 6.65, top: 32.5, offroad: 8, brake: 13, steer: 1.16, response: 8, lean: 0.4, tone: 60 },
   celica: { acceleration: 6.5, top: 32, offroad: 8, brake: 13, steer: 1.18, response: 8, lean: 0.4, tone: 62 },
   h50: { acceleration: 3.8, top: 16, offroad: 7, brake: 9, steer: 1.5, response: 10, lean: 2.2, tone: 95 },
   kursk: { acceleration: 4.4, top: 22, offroad: 11, brake: 10, steer: 0.95, response: 6, lean: 0.85, tone: 40 },
