@@ -1,3 +1,4 @@
+import { surfaceDetail } from "./surface-detail.js";
 import { addFerries } from "./boats.js";
 import * as THREE from "three";
 import { project, inside } from "./geo.js";
@@ -80,7 +81,7 @@ export function addHarbour(scene, data, heightAt, decks, obstacles) {
       const wallHeight =
           parseFloat(f.tags.height) ||
           (f.tags.historic === "ruins" ? 1.1 : 0.9),
-        thickness = 0.45;
+        thickness = f.tags.historic === "ruins" ? 0.9 : 0.45;
       for (let i = 0; i < pts.length - 1; i++) {
         const a = pts[i],
           b = pts[i + 1],
@@ -97,6 +98,9 @@ export function addHarbour(scene, data, heightAt, decks, obstacles) {
             ya = heightAt(...a1),
             yb = heightAt(...b1),
             k = wallVertices.length / 3;
+          // Broken standing masonry within the mapped fort footprint; no invented roofs/towers.
+          const topA = f.tags.historic === "ruins" ? 2.5 + .8*Math.sin(i*1.7+j*1.3)**2 : wallHeight;
+          const topB = f.tags.historic === "ruins" ? 2.5 + .8*Math.sin(i*1.7+(j+1)*1.3)**2 : wallHeight;
           wallVertices.push(
             a1[0] + nx,
             ya,
@@ -111,16 +115,16 @@ export function addHarbour(scene, data, heightAt, decks, obstacles) {
             yb,
             b1[1] - nz,
             a1[0] + nx,
-            ya + wallHeight,
+            ya + topA,
             a1[1] + nz,
             b1[0] + nx,
-            yb + wallHeight,
+            yb + topB,
             b1[1] + nz,
             a1[0] - nx,
-            ya + wallHeight,
+            ya + topA,
             a1[1] - nz,
             b1[0] - nx,
-            yb + wallHeight,
+            yb + topB,
             b1[1] - nz,
           );
           wallIndices.push(
@@ -171,6 +175,7 @@ export function addHarbour(scene, data, heightAt, decks, obstacles) {
     geo.setIndex(wallIndices);
     geo.computeVertexNormals();
     stone.side = THREE.DoubleSide;
+    surfaceDetail(stone,.4,.3);
     scene.add(new THREE.Mesh(geo, stone));
   }
 }

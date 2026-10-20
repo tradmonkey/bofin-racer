@@ -66,6 +66,9 @@ export function makeFerry({ length = 27, beam = 7, hullColor = '#b51e30' } = {})
   rail([-1.1, 7.4, length * 0.13], [1.1, 7.4, length * 0.13], 0.05);
   box(1.4, 0.45, 0.65, orange, 0, 4.2, -length * 0.13);
   boat.name = 'Moored passenger ferry';
+  boat.userData.driveableBoat = true;
+  boat.userData.hull = { length, beam };
+  boat.userData.eyeHeight = 6.5;
   return boat;
 }
 export function ferryPlacements(deck) {
@@ -86,6 +89,8 @@ export function addFerries(scene, data, decks) {
     cargo.position.set(placement.x, 0.15, placement.z);
     cargo.rotation.y = placement.heading;
     scene.add(cargo);
+    const fast = makeFastFerry(), berth = fastFerryPlacement(oldPier);
+    fast.position.set(berth.x,0.15,berth.z);fast.rotation.y=berth.heading;scene.add(fast);
   }
   const feature = data.features.find(f => f.tags.man_made === 'pier' && f.tags.mooring === 'ferry');
   const deck = decks.find(d => d.id === feature?.id);
@@ -101,6 +106,9 @@ export function addFerries(scene, data, decks) {
 export function makeCargoFerry() {
   const boat = new THREE.Group();
   boat.name = 'Old Pier red cargo ferry';
+  boat.userData.driveableBoat = true;
+  boat.userData.eyeHeight = 6.5;
+  boat.userData.hull = { length: 34, beam: 8 };
   const mat = color => new THREE.MeshStandardMaterial({ color, roughness: 0.65 });
   const red = mat('#b51c27'), white = mat('#e9e9df'), dark = mat('#17272b'), glass = mat('#39616c'), blue = mat('#213f9b'), deck = mat('#71756e');
   const box = (w, h, d, material, x, y, z) => {
@@ -171,4 +179,44 @@ export function cargoPlacement(deck) {
   const x = (a[0] + b[0]) / 2, z = (a[1] + b[1]) / 2;
   if (inside(x + nx, z + nz, deck.points)) { nx *= -1; nz *= -1; }
   return { x: x + nx * 5.6, z: z + nz * 5.6, heading: Math.atan2(dx, dz), length: 34, beam: 8 };
+}
+
+export function fastFerryPlacement(deck) {
+  const a=deck.points[4],b=deck.points[5],dx=b[0]-a[0],dz=b[1]-a[1],length=Math.hypot(dx,dz);
+  let nx=-dz/length,nz=dx/length;
+  const x=a[0]+dx*.25,z=a[1]+dz*.25;
+  if(inside(x+nx,z+nz,deck.points)){nx=-nx;nz=-nz;}
+  return {x:x+nx*12,z:z+nz*12,heading:Math.atan2(dx,dz),length:11,beam:3.4};
+}
+export function makeFastFerry() {
+  const boat=new THREE.Group();boat.name='Inishbofin Fast Ferry';
+  boat.userData={driveableBoat:true,eyeHeight:2.7,hull:{length:11,beam:3.4},handling:{top:24,reverse:4,response:1.1,turn:0.018}};
+  const mat=color=>new THREE.MeshStandardMaterial({color,roughness:0.55});
+  const white=mat('#e9e9df'),rubber=mat('#263940'),canopy=mat('#20292c'),glass=mat('#436e7b'),metal=mat('#a9b9b8');
+  const box=(w,h,d,m,x,y,z)=>{const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);mesh.position.set(x,y,z);boat.add(mesh);return mesh;};
+  const outline=new THREE.Shape();outline.moveTo(-1.3,-5.3);outline.lineTo(1.3,-5.3);outline.lineTo(1.6,2.8);outline.quadraticCurveTo(1.4,4.5,0,5.5);outline.quadraticCurveTo(-1.4,4.5,-1.6,2.8);outline.closePath();
+  const hull=new THREE.Mesh(new THREE.ExtrudeGeometry(outline,{depth:0.9,bevelEnabled:false,curveSegments:12}),white);hull.rotation.x=Math.PI/2;hull.position.y=0.75;boat.add(hull);
+  for(const side of [-1,1]) {
+    const tube=new THREE.Mesh(new THREE.CylinderGeometry(.28,.28,8.4,12),rubber);tube.rotation.x=Math.PI/2;tube.position.set(side*1.42,.65,-.7);boat.add(tube);
+    const bow=new THREE.Mesh(new THREE.CylinderGeometry(.28,.28,3.3,12),rubber);bow.rotation.z=Math.PI/2;bow.rotation.y=side*.48;bow.position.set(side*.8,.65,4.1);boat.add(bow);
+    box(.055,.95,4.4,glass,side*1.14,1.65,.1);
+    box(.065,1.05,.13,canopy,side*1.17,1.69,1.98);
+    box(.065,1.05,.13,canopy,side*1.17,1.69,-1.7);
+    box(.07,.07,3.1,metal,side*1.1,1.3,3.25);
+    for(const z of [2,3.5,4.5])box(.045,.45,.045,metal,side*1.1,1.05,z);
+    box(.18,.32,.6,mat('#f07a29'),side*1.15,1.45,-3.7);
+  }
+  box(2.35,.12,4.2,canopy,0,2.23,.1);
+  const screen=box(2.25,.95,.08,glass,0,1.65,2.08);screen.rotation.x=-.25;
+  box(2.3,.13,4.7,white,0,1.12,.4);
+  box(2.1,.2,1.8,white,0,1.05,-3.2);
+  box(.12,1.8,.12,metal,0,3.1,-1.1);box(.8,.18,.4,white,0,3.65,-1.1);
+  if(typeof document!=='undefined') {
+    const canvas=document.createElement('canvas');canvas.width=768;canvas.height=80;
+    const ctx=canvas.getContext('2d');ctx.fillStyle='#e9e9df';ctx.fillRect(0,0,768,80);ctx.fillStyle='#bd2339';ctx.font='bold 43px sans-serif';ctx.textAlign='center';ctx.fillText('INISHBOFIN FAST FERRY',384,55);
+    const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;
+    const signMat=new THREE.MeshBasicMaterial({map:texture});
+    for(const side of [-1,1]){const sign=new THREE.Mesh(new THREE.PlaneGeometry(4.8,.5),signMat);sign.rotation.y=side*Math.PI/2;sign.position.set(side*1.33,1.03,-.3);boat.add(sign);}
+  }
+  return boat;
 }

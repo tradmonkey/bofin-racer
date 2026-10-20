@@ -21,31 +21,21 @@ export function inside(x, z, ring) {
   return c;
 }
 export function nearestRoad(x, z, segments) {
-  let best = { distance: Infinity };
+  let winner, bestSquared = Infinity, bestX, bestZ, bestDx, bestDz;
   for (const s of segments) {
-    const [a, b] = s.points;
-    const dx = b[0] - a[0],
-      dz = b[1] - a[1],
-      length = dx * dx + dz * dz;
+    const [a,b] = s.points;
+    const dx=b[0]-a[0], dz=b[1]-a[1], length=dx*dx+dz*dz;
     if (!length) continue;
-    const t = Math.max(
-      0,
-      Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / length),
-    );
-    const px = a[0] + t * dx,
-      pz = a[1] + t * dz,
-      d = Math.hypot(x - px, z - pz);
-    if (d < best.distance)
-      best = {
-        distance: d,
-        x: px,
-        z: pz,
-        heading: Math.atan2(dx, dz),
-        name: s.name,
-        width: s.width,
-      };
+    // Reject segments whose bounding box is already farther than the best hit.
+    // Use min/max bounds explicitly: segment orientation must not affect pruning.
+    const gapX=Math.max(Math.min(a[0],b[0])-x,0,x-Math.max(a[0],b[0]));
+    const gapZ=Math.max(Math.min(a[1],b[1])-z,0,z-Math.max(a[1],b[1]));
+    if(gapX*gapX+gapZ*gapZ>=bestSquared)continue;
+    const t=Math.max(0,Math.min(1,((x-a[0])*dx+(z-a[1])*dz)/length));
+    const px=a[0]+t*dx,pz=a[1]+t*dz,d=(x-px)**2+(z-pz)**2;
+    if(d<bestSquared){winner=s;bestSquared=d;bestX=px;bestZ=pz;bestDx=dx;bestDz=dz;}
   }
-  return best;
+  return winner ? {distance:Math.sqrt(bestSquared),x:bestX,z:bestZ,heading:Math.atan2(bestDx,bestDz),name:winner.name,width:winner.width} : {distance:Infinity};
 }
 export function terrainSampler(grid) {
   const { width, height, bounds, values } = grid;

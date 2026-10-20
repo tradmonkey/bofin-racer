@@ -1,3 +1,4 @@
+import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import * as THREE from "three";
 export const VEHICLES = [
   { id: "cosworth", name: "Oisin's Cosworth" },
@@ -22,7 +23,8 @@ export function makeVehicle(type = "jeep") {
     rubber = mat("#17201e"),
     metal = mat("#7d8983");
   const box = (w, h, d, m, x, y, z) => {
-    const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
+    const geometry = w > .5 && h > .12 && d > .5 ? new RoundedBoxGeometry(w,h,d,1,Math.min(.045,h*.12)) : new THREE.BoxGeometry(w,h,d);
+    const o = new THREE.Mesh(geometry, m);
     o.position.set(x, y, z);
     g.add(o);
     return o;

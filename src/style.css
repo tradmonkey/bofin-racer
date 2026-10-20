@@ -1075,3 +1075,9 @@ body:not(.driving) #hud { display: none; }
   background-repeat: no-repeat;
   background-position: right 14px center;
 }
+
+.quality-option { display: flex; align-items: center; gap: 8px; margin: 12px 0 18px; font-size: 12px; letter-spacing: 0; text-transform: none; }
+.quality-option input { width: auto; margin: 0; accent-color: #d5ff77; }
+
+#board-boat { position: fixed; z-index: 12; left: 50%; bottom: 180px; transform: translateX(-50%); max-width: calc(100vw - 24px); padding: 14px 20px; border: 1px solid #d5ff77; border-radius: 10px; background: #153e36; color: #d5ff77; font: inherit; cursor: pointer; box-shadow: 0 6px 24px #0005; }
+#board-boat[hidden] { display: none; }
